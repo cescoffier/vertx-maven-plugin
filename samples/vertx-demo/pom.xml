@@ -7,7 +7,6 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <build>
-        <finalName>vertx-demo</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-war-plugin</artifactId>
@@ -63,8 +62,6 @@
         </plugins>
     </build>
     <properties>
-
-
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <vertx.version>3.3.2</vertx.version>
         <verticle.main>org.vertx.demo.MainVerticle</verticle.main>
@@ -73,10 +70,6 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-hazelcast</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>

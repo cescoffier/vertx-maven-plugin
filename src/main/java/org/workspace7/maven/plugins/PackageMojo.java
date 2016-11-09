@@ -25,9 +25,13 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.MavenProjectHelper;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.repository.ArtifactRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
 import org.workspace7.maven.plugins.utils.PackageHelper;
 
 import java.io.File;
@@ -35,6 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -67,6 +72,9 @@ public class PackageMojo extends AbstractMojo {
     protected List<ArtifactRepository> remoteRepositories;
 
     @Component
+    protected MavenProjectHelper mavenProjectHelper;
+
+    @Component
     protected RepositorySystem repositorySystem;
 
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -90,16 +98,22 @@ public class PackageMojo extends AbstractMojo {
 
 
         //Step 0: Resolve and Collect Dependencies as g:a:v:t:c cordinates
-        Set<String> compileAndRuntimeDeps = this.project.getDependencyArtifacts()
+        //FIXME handle exceptions in lambda and break processing
+
+
+        Set<Optional<File>> compileAndRuntimeDeps = this.project.getDependencyArtifacts()
                 .stream()
                 .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
                 .map(artifact -> asMavenCoordinates(artifact))
+                .map(s -> resolveArtifact(s))
                 .collect(Collectors.toSet());
 
-        Set<String> transitiveDeps = this.project.getArtifacts()
+        //FIXME handle exceptions in lambda and break processing
+        Set<Optional<File>> transitiveDeps = this.project.getArtifacts()
                 .stream()
                 .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
                 .map(artifact -> asMavenCoordinates(artifact))
+                .map(s -> resolveArtifact(s))
                 .collect(Collectors.toSet());
 
         //TODO add Resource Directories
@@ -131,6 +145,24 @@ public class PackageMojo extends AbstractMojo {
         }
 
 
+    }
+
+    protected Optional<File> resolveArtifact(String artifact) {
+        ArtifactRequest artifactRequest = new ArtifactRequest();
+        artifactRequest.setArtifact(new org.eclipse.aether.artifact.DefaultArtifact(artifact));
+        try {
+            ArtifactResult artifactResult = repositorySystem.resolveArtifact(repositorySystemSession, artifactRequest);
+            if (artifactResult.isResolved()) {
+                getLog().info("Resolved :" + artifactResult.getArtifact().getArtifactId());
+                return Optional.of(artifactResult.getArtifact().getFile());
+            } else {
+                getLog().error("Unable to resolve:" + artifact);
+            }
+        } catch (ArtifactResolutionException e) {
+            getLog().error("Unable to resolve:" + artifact);
+        }
+
+        return Optional.empty();
     }
 
     protected String asMavenCoordinates(Artifact artifact) {

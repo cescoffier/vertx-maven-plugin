@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -25,8 +26,8 @@ public class PackageHelper {
     private final Attributes.Name MAIN_VERTICLE = new Attributes.Name("Main-Verticle");
     private String mainVerticle;
     private String mainClass;
-    private Set<String> compileAndRuntimeDeps;
-    private Set<String> transitiveDeps;
+    private Set<Optional<File>> compileAndRuntimeDeps;
+    private Set<Optional<File>> transitiveDeps;
     private Log log;
 
     public PackageHelper(String mainClass, String mainVerticle) {
@@ -46,16 +47,53 @@ public class PackageHelper {
         return this;
     }
 
+    /**
+     * @param baseName
+     * @param dir
+     * @param primaryArtifactFile
+     * @return
+     * @throws IOException
+     */
     public File build(String baseName, Path dir, File primaryArtifactFile) throws IOException {
         build(primaryArtifactFile);
         return createFatJar(baseName, dir);
     }
 
+    /**
+     * @param primaryArtifactFile
+     */
     private synchronized void build(File primaryArtifactFile) {
         this.archive.as(ZipImporter.class).importFrom(primaryArtifactFile);
+        addDependencies();
         generateManifest();
     }
 
+    /**
+     *
+     */
+    protected void addDependencies() {
+
+        compileAndRuntimeDeps.stream()
+                .filter(dep -> dep.isPresent())
+                .forEach(dep -> {
+                    File f = dep.get();
+                    log.info("Adding Dependency :" + f.toString());
+                    this.archive.as(ZipImporter.class).importFrom(f);
+                });
+
+        transitiveDeps.stream()
+                .filter(dep -> dep.isPresent())
+                .forEach(dep -> {
+                    File f = dep.get();
+                    log.info("Adding Dependency :" + f.toString());
+                    this.archive.as(ZipImporter.class).importFrom(f);
+                });
+
+    }
+
+    /**
+     *
+     */
     protected void generateManifest() {
         Manifest manifest = new Manifest();
         Attributes attributes = manifest.getMainAttributes();
@@ -76,6 +114,11 @@ public class PackageHelper {
 
     }
 
+    /**
+     * @param baseName
+     * @param dir
+     * @return
+     */
     private synchronized File createFatJar(String baseName, Path dir) {
 
         File jarFile = null;
@@ -100,20 +143,33 @@ public class PackageHelper {
         return jarFile;
     }
 
-    public PackageHelper compileAndRuntimeDeps(Set<String> compileAndRuntimeDeps) {
+    /**
+     * @param compileAndRuntimeDeps
+     * @return
+     */
+    public PackageHelper compileAndRuntimeDeps(Set<Optional<File>> compileAndRuntimeDeps) {
 
         this.compileAndRuntimeDeps = compileAndRuntimeDeps;
 
         return this;
     }
 
-    public PackageHelper transitiveDeps(Set<String> transitiveDeps) {
+    /**
+     * @param transitiveDeps
+     * @return
+     */
+
+    public PackageHelper transitiveDeps(Set<Optional<File>> transitiveDeps) {
 
         this.transitiveDeps = transitiveDeps;
 
         return this;
     }
 
+    /**
+     * @param log
+     * @return
+     */
     public PackageHelper log(Log log) {
         this.log = log;
         return this;
