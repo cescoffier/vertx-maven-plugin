@@ -17,6 +17,9 @@ package org.workspace7.maven.plugins;
  */
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.ArtifactHandler;
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -24,15 +27,16 @@ import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.repository.ArtifactRepository;
+import org.workspace7.maven.plugins.utils.PackageHelper;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -50,10 +54,10 @@ public class PackageMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.directory}")
     protected String projectBuildDir;
 
-    @Parameter(defaultValue = "${main.verticle}", required = true)
+    @Parameter(defaultValue = "${verticle.main}", required = true)
     protected String mainVerticle;
 
-    @Parameter(defaultValue = "io.vertx.core.Launcher")
+    @Parameter(defaultValue = "io.vertx.core.Launcher", property = "vertx.launcher")
     protected String vertxLauncher;
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
@@ -62,19 +66,16 @@ public class PackageMojo extends AbstractMojo {
     @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
     protected List<ArtifactRepository> remoteRepositories;
 
-    @Inject
-    protected ArtifactResolver artifactResolver;
-
     @Component
     protected RepositorySystem repositorySystem;
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-        getLog().info("Hare Krishna!");
+
         final Artifact primaryArtifact = this.project.getArtifact();
         final String finalName = this.project.getName();
         final String type = primaryArtifact.getType();
 
-        File primaryArtifactFile = this.project.getFile();
+        File primaryArtifactFile = this.project.getArtifact().getFile();
 
         if (primaryArtifact == null) {
             Path finalNameArtifact = Paths.get(this.projectBuildDir, finalName + "." + this.project.getPackaging());
@@ -88,8 +89,64 @@ public class PackageMojo extends AbstractMojo {
         }
 
 
-        //Step 1: build the jar
+        //Step 0: Resolve and Collect Dependencies as g:a:v:t:c cordinates
+        Set<String> compileAndRuntimeDeps = this.project.getDependencyArtifacts()
+                .stream()
+                .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
+                .map(artifact -> asMavenCoordinates(artifact))
+                .collect(Collectors.toSet());
+
+        Set<String> transitiveDeps = this.project.getArtifacts()
+                .stream()
+                .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
+                .map(artifact -> asMavenCoordinates(artifact))
+                .collect(Collectors.toSet());
+
+        //TODO add Resource Directories
+
+        PackageHelper packageHelper = new PackageHelper(this.vertxLauncher, this.mainVerticle)
+                .compileAndRuntimeDeps(compileAndRuntimeDeps)
+                .transitiveDeps(transitiveDeps);
+
+        //Step 1: build the jar add classifier and add it to project
+
+        try {
+
+            File fatJarFile = packageHelper
+                    .log(getLog())
+                    .build(finalName == null ? primaryArtifact.getId() : finalName,
+                            Paths.get(this.projectBuildDir), primaryArtifactFile);
+
+            ArtifactHandler handler = new DefaultArtifactHandler("jar");
+
+            Artifact vertxJarArtifact = new DefaultArtifact(primaryArtifact.getGroupId(),
+                    primaryArtifact.getArtifactId(), primaryArtifact.getBaseVersion(), primaryArtifact.getScope()
+                    , "jar", "vertx", handler);
+            vertxJarArtifact.setFile(fatJarFile);
+
+            this.project.addAttachedArtifact(vertxJarArtifact);
+
+        } catch (Exception e) {
+            throw new MojoFailureException("Unable to build fat jar", e);
+        }
+
+
     }
 
+    protected String asMavenCoordinates(Artifact artifact) {
 
+        StringBuilder artifactCords = new StringBuilder().
+                append(artifact.getGroupId())
+                .append(":")
+                .append(artifact.getArtifactId())
+                .append(":")
+                .append(artifact.getVersion());
+        if (!"jar".equals(artifact.getType())) {
+            artifactCords.append(":").append(artifact.getType());
+        }
+        if (artifact.hasClassifier()) {
+            artifactCords.append(":").append(artifact.getClassifier());
+        }
+        return artifactCords.toString();
+    }
 }
