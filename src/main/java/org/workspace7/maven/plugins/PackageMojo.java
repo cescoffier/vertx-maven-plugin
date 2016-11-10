@@ -38,9 +38,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -53,17 +51,12 @@ import java.util.stream.Collectors;
 )
 public class PackageMojo extends AbstractMojo {
 
+    /* ==== Maven deps ==== */
     @Parameter(defaultValue = "${project}", readonly = true)
     protected MavenProject project;
 
     @Parameter(defaultValue = "${project.build.directory}")
     protected String projectBuildDir;
-
-    @Parameter(defaultValue = "${verticle.main}", required = true)
-    protected String mainVerticle;
-
-    @Parameter(defaultValue = "io.vertx.core.Launcher", property = "vertx.launcher")
-    protected String vertxLauncher;
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
     protected DefaultRepositorySystemSession repositorySystemSession;
@@ -77,48 +70,32 @@ public class PackageMojo extends AbstractMojo {
     @Component
     protected RepositorySystem repositorySystem;
 
+    /* ==== Config ====  */
+    // TODO-ROL: It would be awesome if this would not be required but, if not given,
+    // the plugin tries to detect a single verticle. Maybe even decorated with a specific annotation ?
+    // (like @MainVerticle ?). Only if no such verticle can be uniquely identified, then throw an exception.
+    @Parameter(defaultValue = "${vertx.verticle}", required = true)
+    protected String verticle;
+
+    @Parameter(defaultValue = "io.vertx.core.Launcher", property = "vertx.launcher")
+    protected String launcher;
+
+    @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
-        final Artifact primaryArtifact = this.project.getArtifact();
-        final String finalName = this.project.getName();
-        final String type = primaryArtifact.getType();
+        final Artifact artifact = this.project.getArtifact();
 
-        File primaryArtifactFile = this.project.getArtifact().getFile();
-
-        if (primaryArtifact == null) {
-            Path finalNameArtifact = Paths.get(this.projectBuildDir, finalName + "." + this.project.getPackaging());
-            if (Files.exists(finalNameArtifact)) {
-                primaryArtifactFile = finalNameArtifact.toFile();
-            }
-        }
-
-        if (primaryArtifactFile == null) {
-            throw new MojoExecutionException("No primary artifact found, please run mvn package before running vertx-maven-plugin:package");
-        }
-
+        File primaryArtifactFile = getArtifactFile(artifact);
 
         //Step 0: Resolve and Collect Dependencies as g:a:v:t:c cordinates
         //FIXME handle exceptions in lambda and break processing
 
-
-        Set<Optional<File>> compileAndRuntimeDeps = this.project.getDependencyArtifacts()
-                .stream()
-                .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
-                .map(artifact -> asMavenCoordinates(artifact))
-                .map(s -> resolveArtifact(s))
-                .collect(Collectors.toSet());
-
-        //FIXME handle exceptions in lambda and break processing
-        Set<Optional<File>> transitiveDeps = this.project.getArtifacts()
-                .stream()
-                .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
-                .map(artifact -> asMavenCoordinates(artifact))
-                .map(s -> resolveArtifact(s))
-                .collect(Collectors.toSet());
+        Set<Optional<File>> compileAndRuntimeDeps = extractArtifactPaths(this.project.getDependencyArtifacts());
+        Set<Optional<File>> transitiveDeps = extractArtifactPaths(this.project.getArtifacts());
 
         //TODO add Resource Directories
 
-        PackageHelper packageHelper = new PackageHelper(this.vertxLauncher, this.mainVerticle)
+        PackageHelper packageHelper = new PackageHelper(this.launcher, this.verticle)
                 .compileAndRuntimeDeps(compileAndRuntimeDeps)
                 .transitiveDeps(transitiveDeps);
 
@@ -128,13 +105,13 @@ public class PackageMojo extends AbstractMojo {
 
             File fatJarFile = packageHelper
                     .log(getLog())
-                    .build(finalName == null ? primaryArtifact.getId() : finalName,
-                            Paths.get(this.projectBuildDir), primaryArtifactFile);
+                    .build(this.project.getName(), /* name is always != null */
+                           Paths.get(this.projectBuildDir), primaryArtifactFile);
 
             ArtifactHandler handler = new DefaultArtifactHandler("jar");
 
-            Artifact vertxJarArtifact = new DefaultArtifact(primaryArtifact.getGroupId(),
-                    primaryArtifact.getArtifactId(), primaryArtifact.getBaseVersion(), primaryArtifact.getScope()
+            Artifact vertxJarArtifact = new DefaultArtifact(artifact.getGroupId(),
+                    artifact.getArtifactId(), artifact.getBaseVersion(), artifact.getScope()
                     , "jar", "vertx", handler);
             vertxJarArtifact.setFile(fatJarFile);
 
@@ -144,7 +121,30 @@ public class PackageMojo extends AbstractMojo {
             throw new MojoFailureException("Unable to build fat jar", e);
         }
 
+    }
 
+    private File getArtifactFile(Artifact artifact) throws MojoExecutionException {
+        final String finalName = this.project.getName();
+        if (artifact == null) {
+            Path finalNameArtifact = Paths.get(this.projectBuildDir, finalName + "." + this.project.getPackaging());
+            if (Files.exists(finalNameArtifact)) {
+                return finalNameArtifact.toFile();
+            }
+        } else {
+            return artifact.getFile();
+        }
+        // TODO-ROL: Maybe we should fork vertx:package to the package phase (and provide also a vertx:package-nofork for usage
+        // in execution bindings) ?
+        throw new MojoExecutionException("No primary artifact found, please run mvn package before running vertx-maven-plugin:package");
+    }
+
+    private Set<Optional<File>> extractArtifactPaths(Set<Artifact> artifacts) {
+        return artifacts
+                .stream()
+                .filter(e -> e.getScope().equals("compile") || e.getScope().equals("runtime"))
+                .map(artifact -> asMavenCoordinates(artifact))
+                .map(s -> resolveArtifact(s))
+                .collect(Collectors.toSet());
     }
 
     protected Optional<File> resolveArtifact(String artifact) {
@@ -166,7 +166,10 @@ public class PackageMojo extends AbstractMojo {
     }
 
     protected String asMavenCoordinates(Artifact artifact) {
-
+        // TODO-ROL: Shouldn't there be also the classified included after the groupId (if given ?)
+        // Maybe we we should simply reuse DefaultArtifact.toString() (but could be too fragile as it might change
+        // although I don't think it will change any time soon since probably many people already
+        // rely on it)
         StringBuilder artifactCords = new StringBuilder().
                 append(artifact.getGroupId())
                 .append(":")
