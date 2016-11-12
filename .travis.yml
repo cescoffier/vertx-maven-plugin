@@ -1,0 +1,12 @@
+language: java
+jdk:
+  - oraclejdk8
+sudo: required
+cache:
+  directories:
+    - $HOME/.m2
+<<<<<<< f4cefb24d2fb7c709f919db4ea995ffb1bbab16d
+install: true
+=======
+install: true
+>>>>>>> Adding TravisCI integration
