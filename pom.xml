@@ -93,6 +93,8 @@
         <vertx-core.version>3.3.3</vertx-core.version>
         <skipTests>false</skipTests>
         <assertj-core.version>3.4.1</assertj-core.version>
+        <rest-assured.version>3.0.1</rest-assured.version>
+        <commons-lang3.version>3.4</commons-lang3.version>
     </properties>
 
     <dependencies>
@@ -124,6 +126,11 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>${commons-io.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
         </dependency>
 
         <dependency>
@@ -176,11 +183,24 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>${assertj-core.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -235,6 +255,7 @@
                             <addTestClassPath>true</addTestClassPath>
                             <skipInvocation>${skipTests}</skipInvocation>
                             <streamLogs>true</streamLogs>
+                            <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                         </configuration>
                         <executions>
                             <execution>

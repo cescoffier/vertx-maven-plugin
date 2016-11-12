@@ -16,6 +16,10 @@
 
 package org.workspace7.maven.plugins;
 
+//import io.restassured.RestAssured;
+
+import io.restassured.RestAssured;
+
 import java.io.*;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -33,6 +37,13 @@ public class Verify {
         VertxJarVerifier vertxJarVerifier = new VertxJarVerifier(jarFile);
         vertxJarVerifier.verifyJarCreated();
         vertxJarVerifier.verifyManifest();
+    }
+
+    public static void verifyApplicationRunning() throws Exception {
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = Integer.getInteger("http.port", 8080);
+        RestAssured.get("/").then().assertThat().statusCode(200)
+                .contentType("text/plain");
     }
 
     public static String read(InputStream input) throws IOException {
