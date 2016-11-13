@@ -17,142 +17,97 @@
 package org.workspace7.maven.plugins.runners;
 
 import org.apache.commons.lang3.reflect.MethodUtils;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
 import org.workspace7.maven.plugins.utils.SignalListener;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author kameshs
  */
 public class ProcessRunner {
 
+    public static final int PROCESS_START_GRACE_TIMEOUT = 3;
+    public static final int PROCESS_STOP_GRACE_TIMEOUT = 10;
     private static final Method INHERIT_IO_METHOD = MethodUtils.getAccessibleMethod(ProcessBuilder.class, "inheritIO");
 
     private final Path javaPath;
+    private final File workDirectory;
 
-    boolean waitFor;
+    private List<String> argsList;
 
-    List<String> argsList;
+    private Process process;
 
-    Process process;
+    private Log logger;
 
-    long endTime;
+    private CountDownLatch latch;
 
-    public ProcessRunner(boolean waitFor, List<String> argsList) {
-        this.waitFor = waitFor;
+    public ProcessRunner(Log logger, File workDirectory, List<String> argsList) {
+        this.logger = logger;
         this.argsList = argsList;
         javaPath = findJava();
         this.argsList.add(0, javaPath.toString());
+        this.workDirectory = workDirectory;
+        this.latch = new CountDownLatch(1);
     }
 
-    /**
-     * There's a bug in the Windows VM (https://bugs.openjdk.java.net/browse/JDK-8023130)
-     * that means we need to avoid inheritIO
-     * Thanks to SpringBoot Maven Plugin(https://github.com/spring-projects/spring-boot/blob/master/spring-boot-tools/spring-boot-maven-plugin)
-     * for showing way to handle this
-     */
-    private static boolean isInheritIOBroken() {
-        if (!System.getProperty("os.name", "none").toLowerCase().contains("windows")) {
-            return false;
-        }
-        String runtime = System.getProperty("java.runtime.version");
-        if (!runtime.startsWith("1.7")) {
-            return false;
-        }
-        String[] tokens = runtime.split("_");
-        if (tokens.length < 2) {
-            return true;
-        }
-        try {
-            Integer build = Integer.valueOf(tokens[1].split("[^0-9]")[0]);
-            if (build < 60) {
-                return true;
-            }
-        } catch (Exception ex) {
-            return true;
-        }
-        return false;
-    }
-
-    public int run() throws IOException, InterruptedException {
+    public int run() throws MojoExecutionException {
 
         try {
-            ProcessBuilder vertxRunProcBuilder = new ProcessBuilder(this.javaPath.toString());
-            vertxRunProcBuilder.command(argsList);
-            vertxRunProcBuilder.redirectErrorStream(true);
+            ProcessBuilder vertxRunProcBuilder = new ProcessBuilder(this.javaPath.toString())
+                    .directory(this.workDirectory)
+                    .command(argsList);
+
             boolean inheritedIO = inheritIO(vertxRunProcBuilder);
 
             Process vertxRunProc = vertxRunProcBuilder.start();
             this.process = vertxRunProc;
             //Attach Shutdown Hook
-            Runtime.getRuntime().addShutdownHook(new Thread(new RunProcessKiller()));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    Thread.sleep(100L);
+                    stopGracefully(PROCESS_STOP_GRACE_TIMEOUT, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    //nothing to do
+                }
+            }));
 
             if (!inheritedIO) {
+                logger.info("Redirecting output to stdout...");
                 redirectOutput(vertxRunProc);
             }
 
             SignalListener.handle(() -> handleSigInt());
 
-            if (waitFor) {
-                return this.process.waitFor();
+            //Give some time for the process to be spawned
+            awaitReadiness(PROCESS_START_GRACE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (!this.process.isAlive()) {
+                throw new MojoExecutionException("Unable to start process");
             }
-        } finally {
-            if (waitFor) {
-                this.endTime = System.currentTimeMillis();
-                this.process = null;
-            }
+
+        } catch (IOException e) {
+            throw new MojoExecutionException("Error starting process", e);
+        } catch (InterruptedException e) {
+            throw new MojoExecutionException("Error starting process", e);
         }
+
         return 0;
     }
 
-    private boolean inheritIO(ProcessBuilder processBuilder) {
 
-        if (isInheritIOBroken()) {
-            return false;
-        }
-
-        try {
-            INHERIT_IO_METHOD.invoke(processBuilder);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void redirectOutput(Process process) {
-        final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()));
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    String line = reader.readLine();
-                    while (line != null) {
-                        System.out.println(line);
-                        line = reader.readLine();
-                        System.out.flush();
-                    }
-                    reader.close();
-                } catch (IOException e) {
-                    //Ignore
-                }
-            }
-        }.start();
-    }
-
-    private void doKill() {
-        try {
-            this.process.destroy();
-            this.process.waitFor();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+    protected void awaitReadiness(long timeout, TimeUnit timeUnit) throws InterruptedException {
+        this.latch.await(timeout, timeUnit);
     }
 
     protected Path findJava() {
@@ -176,21 +131,86 @@ public class ProcessRunner {
         throw new RuntimeException("unable to locate java binary");
     }
 
-    private void handleSigInt() {
-        boolean justEnded = System.currentTimeMillis() < (this.endTime + 500);
-        if (!justEnded) {
-            //Kill it
-            doKill();
+    protected void handleSigInt() {
+        try {
+            stopGracefully(PROCESS_STOP_GRACE_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            //cant do anything here
         }
     }
 
-    final class RunProcessKiller implements Runnable {
+    /**
+     * There's a bug in the Windows VM (https://bugs.openjdk.java.net/browse/JDK-8023130)
+     * that means we need to avoid inheritIO
+     * Thanks to SpringBoot Maven Plugin(https://github.com/spring-projects/spring-boot/blob/master/spring-boot-tools/spring-boot-maven-plugin)
+     * for showing way to handle this
+     */
+    protected boolean isInheritIOBroken() {
+        if (!System.getProperty("os.name", "none").toLowerCase().contains("windows")) {
+            return false;
+        }
+        String runtime = System.getProperty("java.runtime.version");
+        if (!runtime.startsWith("1.7")) {
+            return false;
+        }
+        String[] tokens = runtime.split("_");
+        if (tokens.length < 2) {
+            return true;
+        }
+        try {
+            Integer build = Integer.valueOf(tokens[1].split("[^0-9]")[0]);
+            if (build < 60) {
+                return true;
+            }
+        } catch (Exception ex) {
+            return true;
+        }
+        return false;
+    }
 
-        @Override
-        public void run() {
-            doKill();
+    protected boolean inheritIO(ProcessBuilder processBuilder) {
+
+        if (isInheritIOBroken()) {
+            return false;
         }
 
+        try {
+            INHERIT_IO_METHOD.invoke(processBuilder);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
+
+    protected void redirectOutput(Process process) {
+
+        final BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()));
+        new Thread() {
+            @Override
+            public void run() {
+                try {
+                    String line = reader.readLine();
+                    while (line != null) {
+                        System.out.println(line);
+                        line = reader.readLine();
+                        System.out.flush();
+                    }
+                    reader.close();
+                } catch (IOException e) {
+                    //Ignore
+                }
+            }
+        }.start();
+
+    }
+
+    protected void stopGracefully(int timeout, TimeUnit timeunit) throws InterruptedException {
+        this.process.destroy();
+        if (!this.process.waitFor(timeout, timeunit)) {
+            this.process.destroyForcibly();
+        }
+    }
+
 
 }

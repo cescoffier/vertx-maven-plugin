@@ -36,9 +36,12 @@ import java.util.stream.Stream;
 /**
  * This Goal helps in running VertX applications as part of maven build.
  * Pressing <code>Ctrl+C</code> will then terminate the application
+ *
  * @since 1.0.0
  */
-@Mojo(name = "run", threadSafe = true, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "run", threadSafe = true,
+        requiresDependencyCollection = ResolutionScope.COMPILE_PLUS_RUNTIME,
+        requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class RunMojo extends AbstractVertxMojo {
 
     /* ==== Vertx Program Args ==== */
@@ -47,6 +50,7 @@ public class RunMojo extends AbstractVertxMojo {
     public static final String VERTX_ARG_LAUNCHER_CLASS = "--launcher-class";
     public static final String VERTX_ARG_REDEPLOY = "--redeploy";
     public static final String VERTX_REDEPLOY_DEFAULT_PATTERN = "src/**/*.java";
+    public static final String VERTX_ARG_CONF = "-conf";
 
     /* ==== Maven related ==== */
 
@@ -76,7 +80,7 @@ public class RunMojo extends AbstractVertxMojo {
      * The additional arguments that will be passed as program arguments to the JVM, all standard vertx arguments are
      * automatically applied
      */
-    @Parameter(name = "run.arguments")
+    @Parameter(alias = "runArgs", property = "vertx.jvmArguments")
     protected String[] runArgs;
 
     /**
@@ -85,6 +89,20 @@ public class RunMojo extends AbstractVertxMojo {
      */
     @Parameter(property = "fork")
     protected boolean forked;
+
+    /**
+     * This property will be passed as the -conf option to vertx run. It defaults to file
+     * "src/main/conf/${project.artifactId}.conf", if it exists it will passed to the vertx run
+     */
+    @Parameter(alias = "conf", property = "vertx.conf", defaultValue = "src/main/conf/${project.artifactId}.conf")
+    File conf;
+
+    /**
+     * This property will be used as the working directory for the process when running in forked mode.
+     * This defaults to ${project.basedir}
+     */
+    @Parameter(alias = "workDirectory", property = "vertx.workdirectory", defaultValue = "${project.basedir}")
+    File workDirectory;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -108,7 +126,7 @@ public class RunMojo extends AbstractVertxMojo {
             addClasspath(argsList);
             addVertxArgs(argsList);
 
-            int exitCode = runAsForked(true, argsList);
+            int exitCode = runAsForked(argsList);
             if (exitCode == 0) {
                 return;
             }
@@ -130,15 +148,10 @@ public class RunMojo extends AbstractVertxMojo {
     }
 
 
-    protected int runAsForked(boolean waitFor, List<String> argsList) throws MojoExecutionException {
-        try {
-            ProcessRunner processRunner = new ProcessRunner(waitFor, argsList);
-            return processRunner.run();
-        } catch (IOException e) {
-            throw new MojoExecutionException("Error running command :", e);
-        } catch (InterruptedException e) {
-            throw new MojoExecutionException("Unable to run command:", e);
-        }
+    protected int runAsForked(List<String> argsList) throws MojoExecutionException {
+        ProcessRunner processRunner = new ProcessRunner(getLog(), this.workDirectory, argsList);
+        int exitCode = processRunner.run();
+        return exitCode;
     }
 
 
@@ -186,14 +199,20 @@ public class RunMojo extends AbstractVertxMojo {
         argsList.add(VERTX_ARG_LAUNCHER_CLASS);
         argsList.add(launcher);
 
-        //TODO - need to get this patterns
         if (redeploy) {
+            getLog().info("VertX application redeploy enabled");
             argsList.add(VERTX_ARG_REDEPLOY);
             if (redeployPatterns != null && redeployPatterns.isEmpty()) {
                 argsList.addAll(redeployPatterns);
             } else {
                 argsList.add(VERTX_REDEPLOY_DEFAULT_PATTERN);
             }
+        }
+
+        if (conf != null && conf.exists() && conf.isFile()) {
+            getLog().info("Using configuration from file: " + conf.toString());
+            argsList.add(VERTX_ARG_CONF);
+            argsList.add(conf.toString());
         }
     }
 
