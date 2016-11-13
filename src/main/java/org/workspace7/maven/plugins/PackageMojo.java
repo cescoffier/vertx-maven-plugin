@@ -33,7 +33,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- *
+ * This goal helps in packaging VertX application as uber jar with bundled dependencies
+ * @since 1.0.0
  */
 @Mojo(name = "package",
         defaultPhase = LifecyclePhase.PACKAGE,
@@ -50,8 +51,7 @@ public class PackageMojo extends AbstractVertxMojo {
 
         File primaryArtifactFile = getArtifactFile(artifact);
 
-        //Step 0: Resolve and Collect Dependencies as g:a:v:t:c cordinates
-        //FIXME handle exceptions in lambda and break processing
+        //Step 0: Resolve and Collect Dependencies as g:a:v:t:c coordinates
 
         Set<Optional<File>> compileAndRuntimeDeps = extractArtifactPaths(this.project.getDependencyArtifacts());
         Set<Optional<File>> transitiveDeps = extractArtifactPaths(this.project.getArtifacts());

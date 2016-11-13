@@ -16,21 +16,17 @@
 
 package org.workspace7.maven.plugins;
 
-import org.apache.commons.lang3.reflect.MethodUtils;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.workspace7.maven.plugins.utils.LaunchRunner;
-import org.workspace7.maven.plugins.utils.SignalListener;
+import org.workspace7.maven.plugins.runners.LaunchRunner;
+import org.workspace7.maven.plugins.runners.ProcessRunner;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.*;
@@ -38,63 +34,57 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * @author kameshs
+ * This Goal helps in running VertX applications as part of maven build.
+ * Pressing <code>Ctrl+C</code> will then terminate the application
+ * @since 1.0.0
  */
 @Mojo(name = "run", threadSafe = true, requiresDependencyCollection = ResolutionScope.TEST)
 public class RunMojo extends AbstractVertxMojo {
 
-    private static final Method INHERIT_IO_METHOD = MethodUtils.getAccessibleMethod(ProcessBuilder.class, "inheritIO");
+    /* ==== Vertx Program Args ==== */
 
-    /* ==== Maven realated ==== */
+    public static final String VERTX_ARG_RUN = "run";
+    public static final String VERTX_ARG_LAUNCHER_CLASS = "--launcher-class";
+    public static final String VERTX_ARG_REDEPLOY = "--redeploy";
+    public static final String VERTX_REDEPLOY_DEFAULT_PATTERN = "src/**/*.java";
 
+    /* ==== Maven related ==== */
+
+    /**
+     * The maven project classes directory, defaults to target/classes
+     */
     @Parameter(defaultValue = "${project.build.outputDirectory}", required = true)
     protected File classesDirectory;
 
+    /**
+     * This property is used to enable vertx to do redeployment of the verticles in case of modifications
+     * to the sources.
+     * The redeployPattern defines the source directories that will be watched for changes to trigger redeployment
+     */
     @Parameter(name = "redeploy", defaultValue = "false")
     protected boolean redeploy;
 
+    /**
+     * The redeployPatterns that will be used to trigger redeployment of the vertx application.
+     * If this this not provided and redeploy is &quot;true&quot; then default value of "src/**.*.java" will be
+     * used as a redeployment pattern
+     */
     @Parameter(name = "redeployPatterns")
     protected List<String> redeployPatterns;
 
+    /**
+     * The additional arguments that will be passed as program arguments to the JVM, all standard vertx arguments are
+     * automatically applied
+     */
     @Parameter(name = "run.arguments")
     protected String[] runArgs;
 
+    /**
+     * The flag to indicate whether to run the vertx application in forked mode or within running maven jvm.
+     * By default its run under maven JVM
+     */
     @Parameter(property = "fork")
     protected boolean forked;
-
-    /* ==== Application related  ==== */
-    Process process;
-
-    long endTime;
-
-    /**
-     * There's a bug in the Windows VM (https://bugs.openjdk.java.net/browse/JDK-8023130)
-     * that means we need to avoid inheritIO
-     * Thanks to SpringBoot Maven Plugin(https://github.com/spring-projects/spring-boot/blob/master/spring-boot-tools/spring-boot-maven-plugin)
-     * for showing way to handle this
-     */
-    private static boolean isInheritIOBroken() {
-        if (!System.getProperty("os.name", "none").toLowerCase().contains("windows")) {
-            return false;
-        }
-        String runtime = System.getProperty("java.runtime.version");
-        if (!runtime.startsWith("1.7")) {
-            return false;
-        }
-        String[] tokens = runtime.split("_");
-        if (tokens.length < 2) {
-            return true;
-        }
-        try {
-            Integer build = Integer.valueOf(tokens[1].split("[^0-9]")[0]);
-            if (build < 60) {
-                return true;
-            }
-        } catch (Exception ex) {
-            return true;
-        }
-        return false;
-    }
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -132,51 +122,24 @@ public class RunMojo extends AbstractVertxMojo {
     }
 
     protected void runInMavenJvm(List<String> argsList) throws MojoExecutionException {
-        IsolatedThreadGroup threadGroup = new IsolatedThreadGroup(launcher);
+        LaunchRunner.IsolatedThreadGroup threadGroup = new LaunchRunner.IsolatedThreadGroup(launcher, getLog());
         Thread launcherThread = new Thread(threadGroup, new LaunchRunner(launcher, argsList));
         launcherThread.setContextClassLoader(buildClassLoader(getClassPathUrls()));
         launcherThread.start();
-        join(threadGroup);
+        LaunchRunner.join(threadGroup);
         threadGroup.rethrowException();
     }
 
 
     protected int runAsForked(boolean waitFor, List<String> argsList) throws MojoExecutionException {
-
         try {
-
-            ProcessBuilder vertxRunProcBuilder = new ProcessBuilder("java");
-            vertxRunProcBuilder.command(argsList);
-            vertxRunProcBuilder.redirectErrorStream(true);
-            boolean inheritedIO = inheritIO(vertxRunProcBuilder);
-
-            Process vertxRunProc = vertxRunProcBuilder.start();
-            this.process = vertxRunProc;
-            //Attach Shutdown Hook
-            Runtime.getRuntime().addShutdownHook(new Thread(new RunProcessKiller()));
-
-            if (!inheritedIO) {
-                redirectOutput(vertxRunProc);
-            }
-
-            SignalListener.handle(() -> handleSigInt());
-
-            if (waitFor) {
-                return this.process.waitFor();
-            }
-
+            ProcessRunner processRunner = new ProcessRunner(waitFor, argsList);
+            return processRunner.run();
         } catch (IOException e) {
             throw new MojoExecutionException("Error running command :", e);
         } catch (InterruptedException e) {
             throw new MojoExecutionException("Unable to run command:", e);
-        } finally {
-            if (waitFor) {
-                this.endTime = System.currentTimeMillis();
-                this.process = null;
-            }
         }
-
-        return 7;
     }
 
 
@@ -213,24 +176,24 @@ public class RunMojo extends AbstractVertxMojo {
 
         Objects.requireNonNull(launcher);
 
-        //Since non forked mode will be using the IO_VERTX_CORE_LAUNCHER, we dont need to pass it as args
+        //Since non forked mode will be using the IO_VERTX_CORE_LAUNCHER, we don't need to pass it as args
         if (isFork()) {
             argsList.add(IO_VERTX_CORE_LAUNCHER);
         }
 
-        argsList.add("run");
+        argsList.add(VERTX_ARG_RUN);
         argsList.add(verticle);
 
-        argsList.add("--launcher-class");
+        argsList.add(VERTX_ARG_LAUNCHER_CLASS);
         argsList.add(launcher);
 
         //TODO - need to get this patterns
         if (redeploy) {
-            argsList.add("--redeploy");
+            argsList.add(VERTX_ARG_REDEPLOY);
             if (redeployPatterns != null && redeployPatterns.isEmpty()) {
                 argsList.addAll(redeployPatterns);
             } else {
-                argsList.add("src/**/*.java");
+                argsList.add(VERTX_REDEPLOY_DEFAULT_PATTERN);
             }
         }
     }
@@ -269,120 +232,8 @@ public class RunMojo extends AbstractVertxMojo {
         return classPathUrls;
     }
 
-    private void doKill() {
-        try {
-            this.process.destroy();
-            this.process.waitFor();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void handleSigInt() {
-        boolean justEnded = System.currentTimeMillis() < (this.endTime + 500);
-        if (!justEnded) {
-            //Kill it
-            doKill();
-        }
-    }
-
     private boolean isFork() {
         return Boolean.TRUE.equals(forked);
     }
 
-    private boolean inheritIO(ProcessBuilder processBuilder) {
-
-        if (isInheritIOBroken()) {
-            return false;
-        }
-
-        try {
-            INHERIT_IO_METHOD.invoke(processBuilder);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-
-    private void join(IsolatedThreadGroup threadGroup) {
-        boolean hasNoDaemonThreads;
-        do {
-            hasNoDaemonThreads = false;
-            Thread[] threads = new Thread[threadGroup.activeCount()];
-            threadGroup.enumerate(threads);
-            for (Thread thread : threads) {
-                if (thread != null && !thread.isDaemon()) {
-                    try {
-                        hasNoDaemonThreads = true;
-                        thread.join();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            }
-        } while (hasNoDaemonThreads);
-    }
-
-    private void redirectOutput(Process process) {
-        final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()));
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    String line = reader.readLine();
-                    while (line != null) {
-                        System.out.println(line);
-                        line = reader.readLine();
-                        System.out.flush();
-                    }
-                    reader.close();
-                } catch (IOException e) {
-                    //Ignore
-                }
-            }
-        }.start();
-    }
-
-    /**
-     * Isolated ThreadGroup to catch uncaught exceptions {@link ThreadGroup}
-     */
-    final class IsolatedThreadGroup extends ThreadGroup {
-
-        private Object monitor = new Object();
-        private Throwable exception;
-
-        public IsolatedThreadGroup(String name) {
-            super(name);
-        }
-
-        public void rethrowException() throws MojoExecutionException {
-            synchronized (this.monitor) {
-                if (this.exception != null) {
-                    throw new MojoExecutionException("Error occurred while running.." +
-                            this.exception.getMessage(), this.exception);
-                }
-            }
-        }
-
-        @Override
-        public void uncaughtException(Thread t, Throwable e) {
-            if (!(e instanceof ThreadDeath)) {
-                synchronized (this.monitor) {
-                    this.exception = (this.exception != null ? e : this.exception);
-                }
-                getLog().warn(e);
-            }
-        }
-    }
-
-    final class RunProcessKiller implements Runnable {
-
-        @Override
-        public void run() {
-            doKill();
-        }
-
-    }
 }

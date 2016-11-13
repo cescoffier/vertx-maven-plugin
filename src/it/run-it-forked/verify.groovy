@@ -14,9 +14,6 @@
  *   limitations under the License.
  */
 
+def file = new File(basedir, "build.log")
+return file.text.contains("Running in forked mode") && file.text.contains("Succeeded in deploying verticle")
 
-import org.workspace7.maven.plugins.Verify;
-
-Verify.verifyApplicationRunning();
-
-return true;

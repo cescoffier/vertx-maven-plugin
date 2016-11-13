@@ -14,7 +14,10 @@
  *   limitations under the License.
  */
 
-package org.workspace7.maven.plugins.utils;
+package org.workspace7.maven.plugins.runners;
+
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,6 +34,25 @@ public class LaunchRunner implements Runnable {
     public LaunchRunner(String launcherClass, List<String> argList) {
         this.launcherClass = launcherClass;
         this.argList = argList;
+    }
+
+    public static void join(IsolatedThreadGroup threadGroup) {
+        boolean hasNoDaemonThreads;
+        do {
+            hasNoDaemonThreads = false;
+            Thread[] threads = new Thread[threadGroup.activeCount()];
+            threadGroup.enumerate(threads);
+            for (Thread thread : threads) {
+                if (thread != null && !thread.isDaemon()) {
+                    try {
+                        hasNoDaemonThreads = true;
+                        thread.join();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        } while (hasNoDaemonThreads);
     }
 
     @Override
@@ -53,6 +75,40 @@ public class LaunchRunner implements Runnable {
             thread.getThreadGroup().uncaughtException(thread, e);
         } catch (IllegalAccessException e) {
             thread.getThreadGroup().uncaughtException(thread, e);
+        }
+    }
+
+    /**
+     * Isolated ThreadGroup to catch uncaught exceptions {@link ThreadGroup}
+     */
+    public static final class IsolatedThreadGroup extends ThreadGroup {
+
+        private final Log logger;
+        private Object monitor = new Object();
+        private Throwable exception;
+
+        public IsolatedThreadGroup(String name, Log logger) {
+            super(name);
+            this.logger = logger;
+        }
+
+        public void rethrowException() throws MojoExecutionException {
+            synchronized (this.monitor) {
+                if (this.exception != null) {
+                    throw new MojoExecutionException("Error occurred while running.." +
+                            this.exception.getMessage(), this.exception);
+                }
+            }
+        }
+
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
+            if (!(e instanceof ThreadDeath)) {
+                synchronized (this.monitor) {
+                    this.exception = (this.exception != null ? e : this.exception);
+                }
+                logger.warn(e);
+            }
         }
     }
 
