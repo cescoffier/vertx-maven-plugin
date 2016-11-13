@@ -23,6 +23,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -31,6 +33,8 @@ import java.util.List;
 public class ProcessRunner {
 
     private static final Method INHERIT_IO_METHOD = MethodUtils.getAccessibleMethod(ProcessBuilder.class, "inheritIO");
+
+    private final Path javaPath;
 
     boolean waitFor;
 
@@ -43,6 +47,8 @@ public class ProcessRunner {
     public ProcessRunner(boolean waitFor, List<String> argsList) {
         this.waitFor = waitFor;
         this.argsList = argsList;
+        javaPath = findJava();
+        this.argsList.add(0, javaPath.toString());
     }
 
     /**
@@ -77,7 +83,7 @@ public class ProcessRunner {
     public int run() throws IOException, InterruptedException {
 
         try {
-            ProcessBuilder vertxRunProcBuilder = new ProcessBuilder("java");
+            ProcessBuilder vertxRunProcBuilder = new ProcessBuilder(this.javaPath.toString());
             vertxRunProcBuilder.command(argsList);
             vertxRunProcBuilder.redirectErrorStream(true);
             boolean inheritedIO = inheritIO(vertxRunProcBuilder);
@@ -147,6 +153,27 @@ public class ProcessRunner {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    protected Path findJava() {
+        String javaHome = System.getProperty("java.home");
+        if (javaHome == null) {
+            throw new RuntimeException("unable to locate java binary");
+        }
+
+        Path binDir = FileSystems.getDefault().getPath(javaHome, "bin");
+
+        Path java = binDir.resolve("java.exe");
+        if (java.toFile().exists()) {
+            return java;
+        }
+
+        java = binDir.resolve("java");
+        if (java.toFile().exists()) {
+            return java;
+        }
+
+        throw new RuntimeException("unable to locate java binary");
     }
 
     private void handleSigInt() {

@@ -105,7 +105,6 @@ public class RunMojo extends AbstractVertxMojo {
 
         if (isFork()) {
             getLog().info("Running in forked mode");
-            argsList.add("java");
             addClasspath(argsList);
             addVertxArgs(argsList);
 

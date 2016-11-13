@@ -17,4 +17,3 @@
 
 def file = new File(basedir, "build.log")
 return file.text.contains("Running with fork disabled") && file.text.contains("Succeeded in deploying verticle")
-
