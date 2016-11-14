@@ -24,19 +24,27 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 /**
+ * This class will help in launching the VertX application as non-forked within the same JVM i.e. Maven JVM
  * @author kameshs
  */
-public class LaunchRunner implements Runnable {
+public class LaunchRunner {
 
     private final String launcherClass;
     private final List<String> argList;
+    private final IsolatedThreadGroup threadGroup;
+    private final Log logger;
 
-    public LaunchRunner(String launcherClass, List<String> argList) {
+    public LaunchRunner(String launcherClass, List<String> argList, Log logger) {
         this.launcherClass = launcherClass;
         this.argList = argList;
+        this.threadGroup = new IsolatedThreadGroup(launcherClass, logger);
+        this.logger = logger;
     }
 
-    public static void join(IsolatedThreadGroup threadGroup) {
+    /**
+     * This will allow the process thread to join the existing non daemon threads
+     */
+    public void join() {
         boolean hasNoDaemonThreads;
         do {
             hasNoDaemonThreads = false;
@@ -44,38 +52,70 @@ public class LaunchRunner implements Runnable {
             threadGroup.enumerate(threads);
             for (Thread thread : threads) {
                 if (thread != null && !thread.isDaemon()) {
-                    try {
-                        hasNoDaemonThreads = true;
-                        thread.join();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
+                    hasNoDaemonThreads = true;
+                    joinThread(thread, 0);
                 }
             }
         } while (hasNoDaemonThreads);
     }
 
-    @Override
-    public void run() {
-        Thread thread = Thread.currentThread();
-        ClassLoader classLoader = thread.getContextClassLoader();
+    /**
+     * This will allow the thread to join the currentThread with the specified timeout in millis
+     *
+     * @param thread  - the thread that will be joining the curent thread
+     * @param timeout - the timeout in millis
+     */
+    private void joinThread(Thread thread, int timeout) {
         try {
-            Class<?> launcherClazz = classLoader.loadClass(launcherClass);
-            Method method = launcherClazz.getMethod("main", String[].class);
-            String[] args = new String[argList.size()];
-            args = argList.toArray(args);
-            method.invoke(null, new Object[]{args});
-        } catch (ClassNotFoundException e) {
-            thread.getThreadGroup().uncaughtException(thread, e);
-        } catch (NoSuchMethodException e) {
-            Exception wrappedEx = new Exception("The class " + launcherClass + " does not have static main method " +
-                    " that accepts String[]", e);
-            thread.getThreadGroup().uncaughtException(thread, wrappedEx);
-        } catch (InvocationTargetException e) {
-            thread.getThreadGroup().uncaughtException(thread, e);
-        } catch (IllegalAccessException e) {
-            thread.getThreadGroup().uncaughtException(thread, e);
+            thread.join(timeout);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("Interrupted while joining thread " + thread, e);
         }
+    }
+
+    /**
+     * This will create a seperate thread that will invoke the Launcher
+     *
+     * @return - the thread that will run with in the current thread and responsible for launching the app
+     */
+    public Thread run() {
+        StringBuilder str = new StringBuilder();
+        this.argList.forEach(s -> {
+            str.append(s);
+            str.append(" ");
+
+        });
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("Running Command: " + str);
+        }
+
+        Thread thread = new Thread(threadGroup, () -> {
+
+            try {
+                Class<?> launcherClazz = Thread.currentThread().getContextClassLoader().loadClass(launcherClass);
+                Method method = launcherClazz.getMethod("main", String[].class);
+                String[] args = new String[argList.size()];
+                args = argList.toArray(args);
+                method.invoke(null, new Object[]{args});
+            } catch (ClassNotFoundException e) {
+                getThreadGroup().uncaughtException(Thread.currentThread(), e);
+            } catch (NoSuchMethodException e) {
+                Exception wrappedEx = new Exception("The class " + launcherClass + " does not have static main method " +
+                        " that accepts String[]", e);
+                getThreadGroup().uncaughtException(Thread.currentThread(), wrappedEx);
+            } catch (InvocationTargetException e) {
+                getThreadGroup().uncaughtException(Thread.currentThread(), e);
+            } catch (IllegalAccessException e) {
+                getThreadGroup().uncaughtException(Thread.currentThread(), e);
+            }
+        });
+        return thread;
+    }
+
+    public IsolatedThreadGroup getThreadGroup() {
+        return threadGroup;
     }
 
     /**

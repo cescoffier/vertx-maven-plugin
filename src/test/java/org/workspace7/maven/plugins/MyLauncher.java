@@ -14,17 +14,17 @@
  *   limitations under the License.
  */
 
-package org.vertx.demo;
+package org.workspace7.maven.plugins;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.*;
+import io.vertx.core.Launcher;
 
-public class MainVerticle extends AbstractVerticle {
+/**
+ * @author kameshs
+ */
+public class MyLauncher extends Launcher {
 
-	@Override
-	public void start() {
-		vertx.createHttpServer()
-				.requestHandler(req -> req.response().end("Hello World!"))
-				.listen(8080);
-	}
+    public static void main(String[] args) {
+        new Launcher().dispatch(args);
+        System.exit(0);
+    }
 }

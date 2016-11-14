@@ -16,6 +16,7 @@
 
 package org.workspace7.maven.plugins;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -24,11 +25,14 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.workspace7.maven.plugins.runners.LaunchRunner;
 import org.workspace7.maven.plugins.runners.ProcessRunner;
+import org.workspace7.maven.plugins.utils.ConfigConverterUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,7 +50,6 @@ public class RunMojo extends AbstractVertxMojo {
 
     /* ==== Vertx Program Args ==== */
 
-    public static final String VERTX_ARG_RUN = "run";
     public static final String VERTX_ARG_LAUNCHER_CLASS = "--launcher-class";
     public static final String VERTX_ARG_REDEPLOY = "--redeploy";
     public static final String VERTX_REDEPLOY_DEFAULT_PATTERN = "src/**/*.java";
@@ -89,14 +92,25 @@ public class RunMojo extends AbstractVertxMojo {
      */
     @Parameter(property = "fork")
     protected boolean forked;
-
+    /**
+     * The default command to use when calling io.vertx.core.Launcher.
+     * possible commands are,
+     * <ul>
+     * <li>bare</li>
+     * <li>list</li>
+     * <li>run</li>
+     * <li>start</li>
+     * <li>stop</li>
+     * <li>run</li>
+     * </ul>
+     */
+    protected String vertxCommand = "run";
     /**
      * This property will be passed as the -conf option to vertx run. It defaults to file
      * "src/main/conf/${project.artifactId}.conf", if it exists it will passed to the vertx run
      */
-    @Parameter(alias = "conf", property = "vertx.conf", defaultValue = "src/main/conf/${project.artifactId}.conf")
+    @Parameter(alias = "conf", property = "vertx.conf", defaultValue = "src/main/conf/${project.artifactId}.json")
     File conf;
-
     /**
      * This property will be used as the working directory for the process when running in forked mode.
      * This defaults to ${project.basedir}
@@ -107,6 +121,8 @@ public class RunMojo extends AbstractVertxMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
+        //FIXME - open it up in respective commit
+        //scanAndLoadConfigs();
         List<String> argsList = new ArrayList<>();
 
         if (getLog().isDebugEnabled()) {
@@ -121,10 +137,16 @@ public class RunMojo extends AbstractVertxMojo {
             getLog().debug("Running command : " + commandBuilder.toString());
         }
 
-        if (isFork()) {
+        boolean isVertxLauncher = isVertxLauncher(launcher);
+
+        if (forked) {
             getLog().info("Running in forked mode");
             addClasspath(argsList);
-            addVertxArgs(argsList);
+            if (isVertxLauncher) {
+                addVertxArgs(argsList);
+            } else {
+                argsList.add(launcher);
+            }
 
             int exitCode = runAsForked(argsList);
             if (exitCode == 0) {
@@ -132,29 +154,80 @@ public class RunMojo extends AbstractVertxMojo {
             }
         } else {
             getLog().info("Running with fork disabled");
-            addVertxArgs(argsList);
+            if (isVertxLauncher) {
+                addVertxArgs(argsList);
+            } else {
+                argsList.add(launcher);
+            }
             runInMavenJvm(argsList);
         }
 
     }
 
-    protected void runInMavenJvm(List<String> argsList) throws MojoExecutionException {
-        LaunchRunner.IsolatedThreadGroup threadGroup = new LaunchRunner.IsolatedThreadGroup(launcher, getLog());
-        Thread launcherThread = new Thread(threadGroup, new LaunchRunner(launcher, argsList));
-        launcherThread.setContextClassLoader(buildClassLoader(getClassPathUrls()));
-        launcherThread.start();
-        LaunchRunner.join(threadGroup);
-        threadGroup.rethrowException();
+    /**
+     * This method to load Vert.X application configurations.
+     * This will use the pattern ${basedir}/src/main/conf/artifactId.[json/yaml]
+     */
+    protected void scanAndLoadConfigs() throws MojoExecutionException {
+        String artifactId = this.project.getArtifactId();
+        //Check if its JSON
+        Path confPath = Paths.get(this.project.getBasedir().toString(), "src/main/conf", artifactId, ".json");
+        if (confPath != null && confPath.toFile().exists() && confPath.toFile().isFile()) {
+            conf = confPath.toFile();
+            return;
+        }
+
+        //Check if its YAML
+        confPath = Paths.get(this.project.getBasedir().toString(), "src/main/conf", artifactId, ".yaml");
+        Path jsonConfPath = Paths.get(this.projectBuildDir, "conf", artifactId, ".json");
+        if (confPath != null && confPath.toFile().exists() && confPath.toFile().isFile()) {
+            try {
+                ConfigConverterUtil.convertYamlToJson(confPath, jsonConfPath);
+                conf = confPath.toFile();
+            } catch (IOException e) {
+                throw new MojoExecutionException("Error loading configuration file:" + confPath.toString());
+            }
+        }
+
     }
 
+    /**
+     * This method will trigger the lauch of the applicaiton as non-forked, running in same JVM as maven.
+     *
+     * @param argsList - the arguments to be passed to the vertx launcher
+     * @throws MojoExecutionException - any error that might occur while starting the process
+     */
 
+    protected void runInMavenJvm(List<String> argsList) throws MojoExecutionException {
+
+        LaunchRunner launchRunner = new LaunchRunner(launcher, argsList, getLog());
+
+        Thread launcherThread = launchRunner.run();
+        launcherThread.setContextClassLoader(buildClassLoader(getClassPathUrls()));
+        launcherThread.start();
+        launchRunner.join();
+        launchRunner.getThreadGroup().rethrowException();
+    }
+
+    /**
+     * This will start VertX application in forked mode.
+     *
+     * @param argsList - the list of arguments that will be passed to the process
+     * @return the exit code of the process run
+     * @throws MojoExecutionException - any error that might occur while starting the process
+     */
     protected int runAsForked(List<String> argsList) throws MojoExecutionException {
-        ProcessRunner processRunner = new ProcessRunner(getLog(), this.workDirectory, argsList);
+        ProcessRunner processRunner = new ProcessRunner(argsList, this.workDirectory, getLog(), true);
         int exitCode = processRunner.run();
         return exitCode;
     }
 
-
+    /**
+     * This add or build the classpath that will be passed to the forked process JVM i.e &quot;-cp&quot;
+     *
+     * @param args - the forked process argument list to which the classpath will be appended
+     * @throws MojoExecutionException - any error that might occur while building or adding classpath
+     */
     private void addClasspath(List<String> args) throws MojoExecutionException {
         try {
             StringBuilder classpath = new StringBuilder();
@@ -171,11 +244,23 @@ public class RunMojo extends AbstractVertxMojo {
         }
     }
 
+    /**
+     * This will add the ${project.build.outputDirectory} to the  classpath url collection
+     *
+     * @param classpathUrls - the existing classpath url collection to which the ${project.build.outputDirectory} be added
+     * @throws IOException - any exception that might occur while get the classes directory as URL
+     */
     private void addClassesDirectory(List<URL> classpathUrls) throws IOException {
 
         classpathUrls.add(this.classesDirectory.toURI().toURL());
     }
 
+    /**
+     * This will add the project resources typically ${basedir}/main/resources to the classpath url collection
+     *
+     * @param classpathUrls - the existing classpath url collection to which the ${project.build.outputDirectory} be added
+     * @throws IOException - any exception that might occur while get the classes directory as URL
+     */
     private void addProjectResources(List<URL> classpathUrls) throws IOException {
 
         for (Resource resource : this.project.getResources()) {
@@ -184,42 +269,105 @@ public class RunMojo extends AbstractVertxMojo {
         }
     }
 
+    /**
+     * This will build the Vertx specific arguments that needs to be passed to the runnable process
+     *
+     * @param argsList - the existing collection of arguments to which the vertx arguments will be added
+     */
     private void addVertxArgs(List<String> argsList) {
 
         Objects.requireNonNull(launcher);
 
-        //Since non forked mode will be using the IO_VERTX_CORE_LAUNCHER, we don't need to pass it as args
-        if (isFork()) {
-            argsList.add(IO_VERTX_CORE_LAUNCHER);
+        if (forked) {
+            if (IO_VERTX_CORE_LAUNCHER.equals(launcher)) {
+                argsList.add(IO_VERTX_CORE_LAUNCHER);
+            } else {
+                argsList.add(launcher);
+            }
         }
 
-        argsList.add(VERTX_ARG_RUN);
-        argsList.add(verticle);
+        argsList.add(vertxCommand);
 
-        argsList.add(VERTX_ARG_LAUNCHER_CLASS);
-        argsList.add(launcher);
+        //Since Verticles will be deployed from custom launchers we dont pass this as argument
+        if (verticle != null) {
+            argsList.add(verticle);
+        }
 
         if (redeploy) {
             getLog().info("VertX application redeploy enabled");
-            argsList.add(VERTX_ARG_REDEPLOY);
+            StringBuilder redeployArg = new StringBuilder();
+            redeployArg.append(VERTX_ARG_REDEPLOY);
+            redeployArg.append("=\"");
             if (redeployPatterns != null && redeployPatterns.isEmpty()) {
-                argsList.addAll(redeployPatterns);
+                final String redeployPattern = redeployPatterns.stream()
+                        .collect(Collectors.joining(","))
+                        .toString();
+                argsList.add(redeployPattern);
             } else {
-                argsList.add(VERTX_REDEPLOY_DEFAULT_PATTERN);
+                Path patternFilePath = Paths.get(this.project.getBasedir().toString()
+                        , VERTX_REDEPLOY_DEFAULT_PATTERN);
+                redeployArg.append(patternFilePath.toString());
             }
+            redeployArg.append("\"");
+            argsList.add(redeployArg.toString());
         }
+
+        argsList.add(VERTX_ARG_LAUNCHER_CLASS);
+        argsList.add(launcher);
 
         if (conf != null && conf.exists() && conf.isFile()) {
             getLog().info("Using configuration from file: " + conf.toString());
             argsList.add(VERTX_ARG_CONF);
             argsList.add(conf.toString());
         }
+
     }
 
+    private boolean isVertxLauncher(String launcher) throws MojoExecutionException {
+
+        if (launcher != null) {
+            if (IO_VERTX_CORE_LAUNCHER.equals(launcher)) {
+                return true;
+            } else {
+                try {
+                    Class customLauncher = buildClassLoader(getClassPathUrls()).loadClass(launcher);
+                    List<Class<?>> superClasses = ClassUtils.getAllSuperclasses(customLauncher);
+                    boolean isAssignable = superClasses != null && !superClasses.isEmpty();
+
+                    for (Class<?> superClass : superClasses) {
+                        if (IO_VERTX_CORE_LAUNCHER.equals(superClass.getName())) {
+                            isAssignable = true;
+                            break;
+                        }
+                    }
+                    return isAssignable;
+                } catch (ClassNotFoundException e) {
+                    throw new MojoExecutionException("Class \"" + launcher + "\" not found");
+                }
+            }
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * This will build the {@link URLClassLoader} object from the collection of classpath URLS
+     *
+     * @param classPathUrls - the classpath urls which will be used to build the {@link URLClassLoader}
+     * @return an instance of {@link URLClassLoader}
+     * @throws MojoExecutionException - any error that might occur while building the {@link URLClassLoader}
+     */
     private ClassLoader buildClassLoader(Collection<URL> classPathUrls) throws MojoExecutionException {
         return new URLClassLoader(classPathUrls.toArray(new URL[classPathUrls.size()]));
     }
 
+    /**
+     * This will resolve the project's test and runtime dependencies along with classes directory, resources directory
+     * to the collection of classpath urls
+     *
+     * @return @{link {@link List<URL>}} which will have all the dependencies, classes directory, resources directory etc.,
+     * @throws MojoExecutionException any error that might occur while building collection like resolution errors
+     */
     private List<URL> getClassPathUrls() throws MojoExecutionException {
         List<URL> classPathUrls = new ArrayList<>();
 
@@ -248,10 +396,6 @@ public class RunMojo extends AbstractVertxMojo {
             throw new MojoExecutionException("Unable to run:", e);
         }
         return classPathUrls;
-    }
-
-    private boolean isFork() {
-        return Boolean.TRUE.equals(forked);
     }
 
 }

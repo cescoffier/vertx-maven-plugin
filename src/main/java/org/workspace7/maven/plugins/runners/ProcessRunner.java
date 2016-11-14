@@ -31,8 +31,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
+ * This class is used to build and run a forked process for the Vert.X application
+ *
  * @author kameshs
  */
 public class ProcessRunner {
@@ -52,18 +55,28 @@ public class ProcessRunner {
 
     private CountDownLatch latch;
 
-    public ProcessRunner(Log logger, File workDirectory, List<String> argsList) {
-        this.logger = logger;
+    private boolean waitFor;
+
+    public ProcessRunner(List<String> argsList, File workDirectory, Log logger, boolean waitFor) {
         this.argsList = argsList;
-        javaPath = findJava();
-        this.argsList.add(0, javaPath.toString());
         this.workDirectory = workDirectory;
+        this.logger = logger;
+        this.waitFor = waitFor;
         this.latch = new CountDownLatch(1);
+        this.javaPath = findJava();
     }
 
     public int run() throws MojoExecutionException {
 
         try {
+
+            argsList.add(0, this.javaPath.toString());
+
+            if (logger.isDebugEnabled()) {
+                String cliArgs = argsList.stream().collect(Collectors.joining(" ")).toString();
+                logger.debug("Process Run Command : " + cliArgs);
+            }
+
             ProcessBuilder vertxRunProcBuilder = new ProcessBuilder(this.javaPath.toString())
                     .directory(this.workDirectory)
                     .command(argsList);
@@ -83,17 +96,13 @@ public class ProcessRunner {
             }));
 
             if (!inheritedIO) {
-                logger.info("Redirecting output to stdout...");
                 redirectOutput(vertxRunProc);
             }
 
             SignalListener.handle(() -> handleSigInt());
 
-            //Give some time for the process to be spawned
-            awaitReadiness(PROCESS_START_GRACE_TIMEOUT, TimeUnit.SECONDS);
-
-            if (!this.process.isAlive()) {
-                throw new MojoExecutionException("Unable to start process");
+            if (waitFor) {
+                return this.process.waitFor();
             }
 
         } catch (IOException e) {
@@ -103,13 +112,25 @@ public class ProcessRunner {
         }
 
         return 0;
+
     }
 
-
+    /**
+     * An utility method to check of the process has started within given timeout
+     *
+     * @param timeout  - the timeout within which the process is expected to be started
+     * @param timeUnit - the {@link TimeUnit} for the timoeut
+     * @throws InterruptedException
+     */
     protected void awaitReadiness(long timeout, TimeUnit timeUnit) throws InterruptedException {
         this.latch.await(timeout, timeUnit);
     }
 
+    /**
+     * An utility to find the Java Executable from the host
+     *
+     * @return - the {@link Path} representing the Java executable path
+     */
     protected Path findJava() {
         String javaHome = System.getProperty("java.home");
         if (javaHome == null) {
@@ -131,6 +152,10 @@ public class ProcessRunner {
         throw new RuntimeException("unable to locate java binary");
     }
 
+    /**
+     * method to handle the SIGINT signals from the process, once received the process will be destroyed gracefully
+     * by calling stopGracefully method with PROCESS_STOP_GRACE_TIMEOUT timeout in seconds
+     */
     protected void handleSigInt() {
         try {
             stopGracefully(PROCESS_STOP_GRACE_TIMEOUT, TimeUnit.SECONDS);
@@ -168,6 +193,12 @@ public class ProcessRunner {
         return false;
     }
 
+    /**
+     * this method will check to see if the process is inheting the IO from the host
+     *
+     * @param processBuilder - the {@link ProcessBuilder} which will be streaming its error/output
+     * @return true if its inheriting the host IO
+     */
     protected boolean inheritIO(ProcessBuilder processBuilder) {
 
         if (isInheritIOBroken()) {
@@ -182,6 +213,12 @@ public class ProcessRunner {
         }
     }
 
+    /**
+     * if the process is not inheriting the IO {@link ProcessRunner#inheritIO(ProcessBuilder)} then we need to redirect
+     * the output to System.out
+     *
+     * @param process - the process which will be streaming the output
+     */
     protected void redirectOutput(Process process) {
 
         final BufferedReader reader = new BufferedReader(
@@ -205,6 +242,14 @@ public class ProcessRunner {
 
     }
 
+    /**
+     * This method will try to destroy the process gracefully within the timeout, if the process is not killed within
+     * the timeout this will kill the process forcibly
+     *
+     * @param timeout  - the timout
+     * @param timeunit - the timeout units as {@link TimeUnit}
+     * @throws InterruptedException - will be thrown when the typical interruptions that might occur during exit
+     */
     protected void stopGracefully(int timeout, TimeUnit timeunit) throws InterruptedException {
         this.process.destroy();
         if (!this.process.waitFor(timeout, timeunit)) {

@@ -19,6 +19,8 @@ package org.workspace7.maven.plugins;
 //import io.restassured.RestAssured;
 
 import io.restassured.RestAssured;
+import io.vertx.core.Launcher;
+import org.apache.commons.lang3.ClassUtils;
 
 import java.io.*;
 import java.util.jar.JarFile;
@@ -56,6 +58,34 @@ public class Verify {
         try (BufferedReader buffer = new BufferedReader(new InputStreamReader(input))) {
             return buffer.lines().collect(Collectors.toList()).stream();
         }
+    }
+
+    public static String argsToString(String[] args) {
+        return Stream.of(args).collect(Collectors.joining(" ")).toString();
+    }
+
+    public static void main(String[] args) {
+
+        try {
+            Class c = Verify.class.getClassLoader().loadClass("org.workspace7.maven.plugins.MyLauncher");
+            boolean isAssignable = ClassUtils.isAssignable(c, Launcher.class);
+
+            if (isAssignable) {
+                System.out.println("yes i can ");
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+//        Launcher launcher = new Launcher();
+//        launcher.getCommandNames().stream().forEach(s -> System.out.println(s));
+//
+        args = new String[]{"run", "org.workspace7.maven.plugins.SimpleVerticle", "--launcher-class=org.workspace7.maven.plugins.MyLauncher", "--redeploy=\"src/main/*.java\""};
+        System.out.println(argsToString(args));
+
+        MyLauncher.main(args);
+
+
     }
 
     public static class VertxJarVerifier {

@@ -86,7 +86,7 @@ public abstract class AbstractVertxMojo extends AbstractMojo {
      * The verticle that will be the main entry point on to the vertx application, the same property will be used
      * as &quot;Main-Verticle;&quot; attribute value on the MANIFEST.MF
      */
-    @Parameter(defaultValue = "${vertx.verticle}", required = true)
+    @Parameter(alias = "verticle", property = "vertx.verticle")
     protected String verticle;
 
     /**
