@@ -1,9 +1,9 @@
-= Vert.X Maven Plugin
+= vert.x Maven Plugin
 
 
 image:https://circleci.com/gh/kameshsampath/vertx-maven-plugin.svg?style=shield["CircleCI", link="https://circleci.com/gh/kameshsampath/vertx-maven-plugin"]
 
-This Maven plugin is a one-stop-shop for packaging, running, starting and stoppping  http://vertx.io[Vert.X] Java applications.  This plugin
+This Maven plugin is a one-stop-shop for packaging, running, starting and stoppping  http://vertx.io[vert.x] Java applications.  This plugin
 combines the goals of Maven Shade, Maven Exec into one, allowing the users to have a simplified pom.xml.
 
 WARNING: Most of the features are under development and tend to break. If you see it breaking,
@@ -26,13 +26,13 @@ https://kameshsampath.github.io/vertx-maven-plugin/#vertx:run[vertx:run] for mor
 |===
 |Goal | Description
 | https://kameshsampath.github.io/vertx-maven-plugin/#vertx:package[vertx-maven-plugin:package]
-| Package  http://vertx.io[Vert.X] application into a fat jar
+| Package  http://vertx.io[vert.x] application into a fat jar
 | https://kameshsampath.github.io/vertx-maven-plugin/#vertx:run[vertx-maven-plugin:run]
-| Runs the  http://vertx.io[Vert.X] application from the maven build
+| Runs the  http://vertx.io[vert.x] application from the maven build
 | vertx-maven-plugin:start
-| Will start the http://vertx.io[Vert.X] application as daemon (WIP)
+| Will start the http://vertx.io[vert.x] application as daemon (WIP)
 | vertx-maven-plugin:stop
-| Will stop the  http://vertx.io[Vert.X] application running as daemon (WIP)
+| Will stop the  http://vertx.io[vert.x] application running as daemon (WIP)
 |===
 
 == Documentation

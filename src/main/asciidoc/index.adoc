@@ -1,4 +1,4 @@
-= Vert.X Maven Plugin
+= vert.x Maven Plugin
 Kamesh Sampath,Roland Huß;
 :revnumber: {version}
 :revdate: {localdate}

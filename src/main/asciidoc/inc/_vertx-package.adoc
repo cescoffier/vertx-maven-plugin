@@ -2,7 +2,7 @@
 [[vertx:package]]
 == *vertx.package*
 
-This goal will package a Vert.x application
+This goal will package a vert.x application
 
 [[package-configuration]]
 === Configuration
