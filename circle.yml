@@ -1,6 +1,8 @@
 machine:
   node:
     version: 0.12.0
+  java:
+    version: openjdk8
 
 branches:
   only:
@@ -18,9 +20,9 @@ general:
 deployment:
   website:
     branch: master
-    owner: fabric8io
+    owner: kameshsampath
     commands:
-      - git config --global user.email "circleci@fabric8.io"
-      - git config --global user.name "CircleCI"
+      - git config --global user.email "kamesh.sampath@hotmail.com"
+      - git config --global user.name "kameshsampath"
       - ./tools/ci-docs.sh
 
