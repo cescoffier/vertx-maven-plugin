@@ -37,9 +37,9 @@ import java.util.Set;
  * @since 1.0.0
  */
 @Mojo(name = "package",
-        defaultPhase = LifecyclePhase.PACKAGE,
-        requiresDependencyCollection = ResolutionScope.COMPILE_PLUS_RUNTIME,
-        requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME
+    defaultPhase = LifecyclePhase.PACKAGE,
+    requiresDependencyCollection = ResolutionScope.COMPILE_PLUS_RUNTIME,
+    requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME
 )
 public class PackageMojo extends AbstractVertxMojo {
 
