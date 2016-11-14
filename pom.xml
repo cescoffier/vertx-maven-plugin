@@ -338,7 +338,7 @@
             </build>
         </profile>
         <profile>
-            <id>all</id>
+            <id>site</id>
             <build>
                 <plugins>
                     <plugin>

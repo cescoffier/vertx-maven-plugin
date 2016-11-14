@@ -107,15 +107,15 @@ public class RunMojo extends AbstractVertxMojo {
     protected String vertxCommand = "run";
     /**
      * This property will be passed as the -conf option to vertx run. It defaults to file
-     * "src/main/conf/${project.artifactId}.conf", if it exists it will passed to the vertx run
+     * "src/main/conf/application.json", if it exists it will passed to the vertx run
      */
-    @Parameter(alias = "conf", property = "vertx.conf", defaultValue = "src/main/conf/${project.artifactId}.json")
+    @Parameter(alias = "config", property = "vertx.config", defaultValue = "src/main/conf/application.json")
     File conf;
     /**
      * This property will be used as the working directory for the process when running in forked mode.
      * This defaults to ${project.basedir}
      */
-    @Parameter(alias = "workDirectory", property = "vertx.workdirectory", defaultValue = "${project.basedir}")
+    @Parameter(alias = "workDirectory", property = "vertx.directory", defaultValue = "${project.basedir}")
     File workDirectory;
 
     @Override

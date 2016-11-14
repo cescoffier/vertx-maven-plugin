@@ -12,9 +12,9 @@ This goal allows to run the vert.x applicaiton as part of the maven build.  The 
 | The project classes directory where the sources will be compiled to.
 |
 | `${project.build.outputDirectory}`
-| conf
+| config
 | the application configuration file path that will be passed to the vertx launcher as `-conf`. If a yaml file is configured then it will be converted to json by the plugin
-| vertx.conf
+| vertx.config
 | `${basedir}/src/main/${project.artifactId}.json` or `${basedir}/src/main/${project.artifactId}.yaml`
 | fork
 | Controls whether the application will be run in forked mode or non-forked mode
@@ -34,7 +34,7 @@ This goal allows to run the vert.x applicaiton as part of the maven build.  The 
 |
 | workDirectory
 | The working directory of the running process of the application
-| vertx.workdirectory
+| vertx.directory
 | `${project.basedir}`
 |===
 
