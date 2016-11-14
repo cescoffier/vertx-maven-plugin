@@ -1,10 +1,45 @@
 
 = Introduction
 
-This is a Maven plugin for creating http://vertx.io/[vert.x] applications
+This is a Maven plugin for packaging and running http://vertx.io/[vert.x] applications
 
 == Packaging
 
+The vert.x application needs to be packaged as fat or uber jar, which can then be executed
+using `java -jar <my-app-fat.jar>`.  The packaging also need to add certain *MANIFEST.MF* entires
+that controls the vert.x application launching.  The plugin takes care of adding the required entries
+to the *MANIFEST.MF*.
+
+The following are the Manifest entries that will be added based on the configuration elements:
+
+.Package configuration
+[cols="1,1,5"]
+|===
+| Property| Manifest Attribute | Remarks
+
+| vertx.verticle
+| Main-Verticle
+|
+| vertx.launcher
+| Main-class
+| If custom launcher is used the Main-Class is always defaulted to `io.vertx.core.Launcher`
+|===
+
+To package the project as vert.x application, execute the following maven command
+
+`mvn clean package vertx:package`
+
+For more information on packaging refer to link:_vertx-package.adoc[vertx:package]
 
 == Running
+
+The vert.x application could also be run without building building the fat jars, typically during the
+development mode.  The link:_vertx-package.adoc[vertx:run] goal helps in running the application. The
+application will be run in either forked or non-forked mode based on the configuration of the goal.
+
+To start the application vert.x application, execute the following maven command
+
+`mvn clean package vertx:run`
+
+For more information on configuration options refer to link:_vertx-run.adoc[vertx:run]
 

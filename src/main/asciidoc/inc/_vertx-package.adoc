@@ -2,17 +2,11 @@
 [[vertx:package]]
 == *vertx.package*
 
-This goal will package a vert.x application
+This goal will package a vert.x application as fat or uber jar with its dependencies bundled
+as part of the jar
 
 [[package-configuration]]
 === Configuration
 
-.Package configuration
-[cols="1,5,1"]
-|===
-| Element | Description | Property
-
-|
-|
-|
-|===
+The package goal does not have any additional configuration other the ones mentioned in
+link:_common_configuration.adoc[Common Configuration]

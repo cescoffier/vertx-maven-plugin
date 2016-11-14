@@ -23,6 +23,7 @@ import org.jboss.shrinkwrap.api.asset.ByteArrayAsset;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.importer.ZipImporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.workspace7.maven.plugins.AbstractVertxMojo;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -112,8 +113,11 @@ public class PackageHelper {
         Manifest manifest = new Manifest();
         Attributes attributes = manifest.getMainAttributes();
         attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
-        attributes.put(Attributes.Name.MAIN_CLASS, mainClass);
-        attributes.put(MAIN_VERTICLE, mainVerticle);
+        attributes.put(Attributes.Name.MAIN_CLASS, AbstractVertxMojo.IO_VERTX_CORE_LAUNCHER);
+        //This is a typical situation when application is launched with custom launcher
+        if (mainVerticle != null) {
+            attributes.put(MAIN_VERTICLE, mainVerticle);
+        }
 
         try {
             ByteArrayOutputStream bout = new ByteArrayOutputStream();

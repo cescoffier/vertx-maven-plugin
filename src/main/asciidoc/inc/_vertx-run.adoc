@@ -1,13 +1,41 @@
 
 [[vertx:run]]
 == *vertx:run*
+This goal allows to run the vert.x applicaiton as part of the maven build.  The applicaiton run can either be run as forked and non-forked process.  By default the applicaiton is run in non-forked mode.
 
 .Run configuration
-[cols="1,5,1"]
+[cols="1,5,1,1"]
 |===
-| Element | Description | Property
+| Element | Description | Property| Default
 
+| classesDirectory^*^
+| The project classes directory where the sources will be compiled to.
 |
+| `${project.build.outputDirectory}`
+| config
+| the application configuration file path that will be passed to the vertx launcher as `-conf`. If a yaml file is configured then it will be converted to json by the plugin
+| vertx.config
+| `${basedir}/src/main/${project.artifactId}.json` or `${basedir}/src/main/${project.artifactId}.yaml`
+| fork
+| Controls whether the application will be run in forked mode or non-forked mode
+| fork
+| false
+| redeploy
+| controls whether vertx redeploy is enabled
 |
+| false
+| redeployPatterns
+| The ant based pattern for scanning changes for redeployment.  If redeploy is *true* and redeployPatterns is empty then a default value is will be applied.  This is list of values following standard maven list/array configuration
 |
+| `src/main/\**/*.java`
+| runArgs
+| the additional arguments that needs to be passed to JVM
+| vertx.jvmArguments
+|
+| workDirectory
+| The working directory of the running process of the application
+| vertx.directory
+| `${project.basedir}`
 |===
+
+NOTE: All elements with ^*^ is required

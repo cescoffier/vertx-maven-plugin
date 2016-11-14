@@ -98,6 +98,10 @@
         <vertx-core.version>3.3.3</vertx-core.version>
         <skipTests>false</skipTests>
         <assertj-core.version>3.4.1</assertj-core.version>
+        <rest-assured.version>3.0.1</rest-assured.version>
+        <commons-lang3.version>3.4</commons-lang3.version>
+        <maven-project-info-reports-plugin.version>2.9</maven-project-info-reports-plugin.version>
+        <snakeyaml.version>1.17</snakeyaml.version>
     </properties>
 
     <dependencies>
@@ -130,6 +134,11 @@
             <artifactId>commons-io</artifactId>
             <version>${commons-io.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>io.vertx</groupId>
@@ -148,6 +157,12 @@
             <groupId>org.eclipse.aether</groupId>
             <artifactId>aether-util</artifactId>
             <version>${aether-util.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
         </dependency>
 
         <!-- Packaging and Other Archiving Utilities -->
@@ -181,11 +196,24 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>${assertj-core.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -287,12 +315,14 @@
                         <version>${maven-invoker-plugin.version}</version>
                         <configuration>
                             <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
+                            <cloneClean>true</cloneClean>
                             <settingsFile>src/it/settings.xml</settingsFile>
                             <localRepositoryPath>${project.build.directory}/local-repo</localRepositoryPath>
                             <postBuildHookScript>verify</postBuildHookScript>
                             <addTestClassPath>true</addTestClassPath>
                             <skipInvocation>${skipTests}</skipInvocation>
                             <streamLogs>true</streamLogs>
+                            <invokerPropertiesFile>invoker.properties</invokerPropertiesFile>
                         </configuration>
                         <executions>
                             <execution>
@@ -307,7 +337,49 @@
                 </plugins>
             </build>
         </profile>
-
+        <profile>
+            <id>site</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-site-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>generate-site</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            <reporting>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-plugin-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-project-info-reports-plugin</artifactId>
+                        <version>${maven-project-info-reports-plugin.version}</version>
+                        <reportSets>
+                            <reportSet>
+                                <reports>
+                                    <report>index</report>
+                                    <report>cim</report>
+                                    <report>issue-tracking</report>
+                                    <report>license</report>
+                                    <report>scm</report>
+                                </reports>
+                            </reportSet>
+                        </reportSets>
+                    </plugin>
+                </plugins>
+            </reporting>
+        </profile>
         <profile>
             <id>doc-html</id>
             <build>
