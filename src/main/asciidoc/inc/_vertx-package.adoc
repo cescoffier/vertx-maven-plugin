@@ -1,0 +1,18 @@
+
+[[vertx:package]]
+== *vertx.package*
+
+This goal will package a Vert.x application
+
+[[package-configuration]]
+=== Configuration
+
+.Package configuration
+[cols="1,5,1"]
+|===
+| Element | Description | Property
+
+|
+|
+|
+|===

@@ -1,0 +1,26 @@
+machine:
+  node:
+    version: 0.12.0
+
+branches:
+  only:
+    - master
+
+dependencies:
+  override:
+    - "echo 'No extra dependency resolution'"
+
+general:
+  branches:
+    ignore:
+      - 'gh-pages'
+
+deployment:
+  website:
+    branch: master
+    owner: fabric8io
+    commands:
+      - git config --global user.email "circleci@fabric8.io"
+      - git config --global user.name "CircleCI"
+      - ./tools/ci-docs.sh
+
