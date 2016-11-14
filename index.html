@@ -554,15 +554,72 @@ table.CodeRay td.code>pre{padding:0}
 <h2 id="introduction">1. Introduction</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This is a Maven plugin for creating <a href="http://vertx.io/">vert.x</a> applications</p>
+<p>This is a Maven plugin for packaging and running <a href="http://vertx.io/">vert.x</a> applications</p>
 </div>
 <div class="sect2">
 <h3 id="packaging">1.1. Packaging</h3>
-
+<div class="paragraph">
+<p>The vert.x application needs to be packaged as fat or uber jar, which can then be executed
+using <code>java -jar &lt;my-app-fat.jar&gt;</code>.  The packaging also need to add certain <strong>MANIFEST.MF</strong> entires
+that controls the vert.x application launching.  The plugin takes care of adding the required entries
+to the <strong>MANIFEST.MF</strong>.</p>
+</div>
+<div class="paragraph">
+<p>The following are the Manifest entries that will be added based on the configuration elements:</p>
+</div>
+<table class="tableblock frame-all grid-all spread">
+<caption class="title">Table 1. Package configuration</caption>
+<colgroup>
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 71.4286%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Property</th>
+<th class="tableblock halign-left valign-top">Manifest Attribute</th>
+<th class="tableblock halign-left valign-top">Remarks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vertx.verticle</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Main-Verticle</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vertx.launcher</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Main-class</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If custom launcher is used the Main-Class is always defaulted to <code>io.vertx.core.Launcher</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>To package the project as vert.x application, execute the following maven command</p>
+</div>
+<div class="paragraph">
+<p><code>mvn clean package vertx:package</code></p>
+</div>
+<div class="paragraph">
+<p>For more information on packaging refer to <a href="_vertx-package.adoc">vertx:package</a></p>
+</div>
 </div>
 <div class="sect2">
 <h3 id="running">1.2. Running</h3>
-
+<div class="paragraph">
+<p>The vert.x application could also be run without building building the fat jars, typically during the
+development mode.  The <a href="_vertx-package.adoc">vertx:run</a> goal helps in running the application. The
+application will be run in either forked or non-forked mode based on the configuration of the goal.</p>
+</div>
+<div class="paragraph">
+<p>To start the application vert.x application, execute the following maven command</p>
+</div>
+<div class="paragraph">
+<p><code>mvn clean package vertx:run</code></p>
+</div>
+<div class="paragraph">
+<p>For more information on configuration options refer to <a href="_vertx-run.adoc">vertx:run</a></p>
+</div>
 </div>
 </div>
 </div>
@@ -573,7 +630,7 @@ table.CodeRay td.code>pre{padding:0}
 <p>All goals share the following configuration:</p>
 </div>
 <table class="tableblock frame-all grid-all spread">
-<caption class="title">Table 1. Package configuration</caption>
+<caption class="title">Table 2. Package configuration</caption>
 <colgroup>
 <col style="width: 12.5%;">
 <col style="width: 62.5%;">
@@ -613,7 +670,7 @@ table.CodeRay td.code>pre{padding:0}
 in the next sections.</p>
 </div>
 <table class="tableblock frame-all grid-all spread">
-<caption class="title">Table 2. Plugin Goals</caption>
+<caption class="title">Table 3. Plugin Goals</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 75%;">
@@ -638,58 +695,95 @@ in the next sections.</p>
 <div class="sect2">
 <h3 id="vertx:package">3.1. <strong>vertx.package</strong></h3>
 <div class="paragraph">
-<p>This goal will package a vert.x application</p>
+<p>This goal will package a vert.x application as fat or uber jar with its dependencies bundled
+as part of the jar</p>
 </div>
 <div class="sect3">
 <h4 id="package-configuration">3.1.1. Configuration</h4>
-<table class="tableblock frame-all grid-all spread">
-<caption class="title">Table 3. Package configuration</caption>
-<colgroup>
-<col style="width: 14.2857%;">
-<col style="width: 71.4285%;">
-<col style="width: 14.2858%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Element</th>
-<th class="tableblock halign-left valign-top">Description</th>
-<th class="tableblock halign-left valign-top">Property</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-</tbody>
-</table>
+<div class="paragraph">
+<p>The package goal does not have any additional configuration other the ones mentioned in
+<a href="_common_configuration.adoc">Common Configuration</a></p>
+</div>
 </div>
 </div>
 <div class="sect2">
 <h3 id="vertx:run">3.2. <strong>vertx:run</strong></h3>
+<div class="paragraph">
+<p>This goal allows to run the vert.x applicaiton as part of the maven build.  The applicaiton run can either be run as forked and non-forked process.  By default the applicaiton is run in non-forked mode.</p>
+</div>
 <table class="tableblock frame-all grid-all spread">
 <caption class="title">Table 4. Run configuration</caption>
 <colgroup>
-<col style="width: 14.2857%;">
-<col style="width: 71.4285%;">
-<col style="width: 14.2858%;">
+<col style="width: 12.5%;">
+<col style="width: 62.5%;">
+<col style="width: 12.5%;">
+<col style="width: 12.5%;">
 </colgroup>
 <thead>
 <tr>
 <th class="tableblock halign-left valign-top">Element</th>
 <th class="tableblock halign-left valign-top">Description</th>
 <th class="tableblock halign-left valign-top">Property</th>
+<th class="tableblock halign-left valign-top">Default</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">classesDirectory<sup>*</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The project classes directory where the sources will be compiled to.</p></td>
 <td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>${project.build.outputDirectory}</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">config</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the application configuration file path that will be passed to the vertx launcher as <code>-conf</code>. If a yaml file is configured then it will be converted to json by the plugin</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vertx.config</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>${basedir}/src/main/${project.artifactId}.json</code> or <code>${basedir}/src/main/${project.artifactId}.yaml</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">fork</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Controls whether the application will be run in forked mode or non-forked mode</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">fork</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">false</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">redeploy</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">controls whether vertx redeploy is enabled</p></td>
 <td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">false</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">redeployPatterns</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The ant based pattern for scanning changes for redeployment.  If redeploy is <strong>true</strong> and redeployPatterns is empty then a default value is will be applied.  This is list of values following standard maven list/array configuration</p></td>
 <td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>src/main/**/*.java</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">runArgs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the additional arguments that needs to be passed to JVM</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vertx.jvmArguments</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">workDirectory</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The working directory of the running process of the application</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vertx.directory</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>${project.basedir}</code></p></td>
 </tr>
 </tbody>
 </table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+All elements with <sup>*</sup> is required
+</td>
+</tr>
+</table>
+</div>
 </div>
 </div>
 </div>
@@ -697,7 +791,7 @@ in the next sections.</p>
 <div id="footer">
 <div id="footer-text">
 Version 1.0-SNAPSHOT<br>
-Last updated 2016-11-14 14:56:34 UTC
+Last updated 2016-11-14 16:36:46 UTC
 </div>
 </div>
 </body>
