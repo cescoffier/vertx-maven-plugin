@@ -1,6 +1,7 @@
 = Vert.X Maven Plugin
 
-image:https://circleci.com/gh/kameshsampath/vertx-maven-plugin.svg?style=svg["CircleCI", link="https://circleci.com/gh/kameshsampath/vertx-maven-plugin"]
+
+image:https://circleci.com/gh/kameshsampath/vertx-maven-plugin.svg?style=shield["CircleCI", link="https://circleci.com/gh/kameshsampath/vertx-maven-plugin"]
 
 This Maven plugin is a one-stop-shop for packaging, running, starting and stoppping  http://vertx.io[Vert.X] Java applications.  This plugin
 combines the goals of Maven Shade, Maven Exec into one, allowing the users to have a simplified pom.xml.
