@@ -1,10 +1,10 @@
-= kameshsampath/vertx-maven-plugin
-Kamesh Sampath;
+= Vert.X Maven Plugin
+Kamesh Sampath,Roland Huß;
 :revnumber: {version}
 :revdate: {localdate}
 :toc: macro
 :toclevels: 3
-:toc-title: vertx-maven-plugin
+:toc-title: Vert.X Maven Plugin
 :doctype: book
 :icons: font
 
