@@ -1,0 +1,13 @@
+
+[[vertx:run]]
+== *vertx:run*
+
+.Run configuration
+[cols="1,5,1"]
+|===
+| Element | Description | Property
+
+|
+|
+|
+|===
