@@ -40,8 +40,8 @@ import java.util.stream.Collectors;
  */
 public class ProcessRunner {
 
-    public static final int PROCESS_START_GRACE_TIMEOUT = 3;
     public static final int PROCESS_STOP_GRACE_TIMEOUT = 10;
+
     private static final Method INHERIT_IO_METHOD = MethodUtils.getAccessibleMethod(ProcessBuilder.class, "inheritIO");
 
     private final Path javaPath;
@@ -49,13 +49,13 @@ public class ProcessRunner {
 
     private List<String> argsList;
 
-    private Process process;
-
     private Log logger;
 
     private CountDownLatch latch;
 
     private boolean waitFor;
+
+    private Process process;
 
     public ProcessRunner(List<String> argsList, File workDirectory, Log logger, boolean waitFor) {
         this.argsList = argsList;
@@ -66,7 +66,11 @@ public class ProcessRunner {
         this.javaPath = findJava();
     }
 
-    public int run() throws MojoExecutionException {
+    public Process getProcess() {
+        return process;
+    }
+
+    public void run() throws MojoExecutionException {
 
         try {
 
@@ -83,8 +87,7 @@ public class ProcessRunner {
 
             boolean inheritedIO = inheritIO(vertxRunProcBuilder);
 
-            Process vertxRunProc = vertxRunProcBuilder.start();
-            this.process = vertxRunProc;
+            this.process = vertxRunProcBuilder.start();
             //Attach Shutdown Hook
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
@@ -96,13 +99,13 @@ public class ProcessRunner {
             }));
 
             if (!inheritedIO) {
-                redirectOutput(vertxRunProc);
+                redirectOutput();
             }
 
             SignalListener.handle(() -> handleSigInt());
 
             if (waitFor) {
-                return this.process.waitFor();
+                this.process.waitFor();
             }
 
         } catch (IOException e) {
@@ -110,8 +113,6 @@ public class ProcessRunner {
         } catch (InterruptedException e) {
             throw new MojoExecutionException("Error starting process", e);
         }
-
-        return 0;
 
     }
 
@@ -122,7 +123,7 @@ public class ProcessRunner {
      * @param timeUnit - the {@link TimeUnit} for the timoeut
      * @throws InterruptedException
      */
-    protected void awaitReadiness(long timeout, TimeUnit timeUnit) throws InterruptedException {
+    public void awaitReadiness(long timeout, TimeUnit timeUnit) throws InterruptedException {
         this.latch.await(timeout, timeUnit);
     }
 
@@ -216,13 +217,11 @@ public class ProcessRunner {
     /**
      * if the process is not inheriting the IO {@link ProcessRunner#inheritIO(ProcessBuilder)} then we need to redirect
      * the output to System.out
-     *
-     * @param process - the process which will be streaming the output
      */
-    protected void redirectOutput(Process process) {
+    protected void redirectOutput() {
 
         final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()));
+                new InputStreamReader(this.process.getInputStream()));
         new Thread() {
             @Override
             public void run() {
@@ -256,6 +255,5 @@ public class ProcessRunner {
             this.process.destroyForcibly();
         }
     }
-
 
 }

@@ -46,8 +46,6 @@ import java.util.Set;
 )
 public class PackageMojo extends AbstractVertxMojo {
 
-    public static final String CLASSIFIER = "vertx";
-    public static final String JAR_TYPE = "jar";
 
     final MojoUtils mojoUtils = new MojoUtils();
 
@@ -84,7 +82,7 @@ public class PackageMojo extends AbstractVertxMojo {
 
             Artifact vertxJarArtifact = new DefaultArtifact(artifact.getGroupId(),
                     artifact.getArtifactId(), artifact.getBaseVersion(), artifact.getScope()
-                    , JAR_TYPE, CLASSIFIER, handler);
+                    , Constants.VERTX_PACKAGING, Constants.VERTX_CLASSIFIER, handler);
             vertxJarArtifact.setFile(fatJarFile);
 
             this.project.addAttachedArtifact(vertxJarArtifact);

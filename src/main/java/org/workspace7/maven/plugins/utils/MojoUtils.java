@@ -33,7 +33,11 @@ import static org.twdata.maven.mojoexecutor.MojoExecutor.*;
  */
 public class MojoUtils {
 
-    private static final String JAR_PLUGIN_KEY = "";
+    public static final String G_VERTX_MAVEN_PLUGIN = "org.workspace7.maven.plugins";
+    public static final String A_VERTX_MAVEN_PLUGIN = "vertx-maven-plugin";
+    public static final String V_VERTX_MAVEN_PLUGIN = "1.0-SNAPSHOT";
+    private static final String JAR_PLUGIN_KEY = "org.apache.maven.plugins:maven-jar-plugin";
+    private static final String VERTX_PACKAGE_PLUGIN_KEY = "org.workspace7.maven.plugins:vertx-maven-plugin";
     private Log logger;
 
     public MojoUtils withLog(Log log) {
@@ -95,5 +99,15 @@ public class MojoUtils {
                 .filter(plugin -> JAR_PLUGIN_KEY.equals(plugin.getKey()))
                 .findFirst();
         return jarPlugin;
+    }
+
+    public void buildVertxArtifact(MavenProject project, MavenSession mavenSession,
+                                   BuildPluginManager buildPluginManager) throws MojoExecutionException {
+        executeMojo(
+                plugin(G_VERTX_MAVEN_PLUGIN, A_VERTX_MAVEN_PLUGIN, V_VERTX_MAVEN_PLUGIN),
+                goal("package"),
+                configuration(),
+                executionEnvironment(project, mavenSession, buildPluginManager)
+        );
     }
 }

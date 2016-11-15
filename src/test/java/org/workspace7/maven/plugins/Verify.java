@@ -20,9 +20,9 @@ package org.workspace7.maven.plugins;
 
 import io.restassured.RestAssured;
 import io.vertx.core.Launcher;
-import org.apache.commons.lang3.ClassUtils;
 
 import java.io.*;
+import java.util.UUID;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
@@ -66,24 +66,45 @@ public class Verify {
 
     public static void main(String[] args) {
 
-        try {
-            Class c = Verify.class.getClassLoader().loadClass("org.workspace7.maven.plugins.MyLauncher");
-            boolean isAssignable = ClassUtils.isAssignable(c, Launcher.class);
+        UUID uuid = UUID.randomUUID();
+        String processId = uuid.toString();
+        System.out.println("Vertx Process ID:" + processId);
 
-            if (isAssignable) {
-                System.out.println("yes i can ");
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+
+//        try {
+//            Class c = Verify.class.getClassLoader().loadClass("org.workspace7.maven.plugins.MyLauncher");
+//            boolean isAssignable = ClassUtils.isAssignable(c, Launcher.class);
+//
+//            if (isAssignable) {
+//                System.out.println("yes i can ");
+//            }
+//        } catch (ClassNotFoundException e) {
+//            e.printStackTrace();
+//        }
+
+        Launcher launcher = new Launcher();
+
+        launcher.getCommandNames().stream().forEach(s -> System.out.println(s));
+
+        Launcher.main(new String[]{"start", "--help"});
+
+        String[] startArgs = new String[]{"start", "-id", processId, "org.workspace7.maven.plugins.SimpleVerticle", "--launcher-class=io.vertx.core.Launcher"};
+
+        Launcher.main(startArgs);
+
+        try {
+            Thread.sleep(10000);
+            String[] stopArgs = new String[]{"stop", processId};
+            Launcher.main(stopArgs);
+        } catch (InterruptedException e) {
+
         }
 
-//        Launcher launcher = new Launcher();
-//        launcher.getCommandNames().stream().forEach(s -> System.out.println(s));
-//
-        args = new String[]{"run", "org.workspace7.maven.plugins.SimpleVerticle", "--launcher-class=org.workspace7.maven.plugins.MyLauncher", "--redeploy=\"src/main/*.java\""};
-        System.out.println(argsToString(args));
 
-        MyLauncher.main(args);
+//        args = new String[]{"run", "org.workspace7.maven.plugins.SimpleVerticle", "--launcher-class=org.workspace7.maven.plugins.MyLauncher", "--redeploy=\"src/main/*.java\""};
+//        System.out.println(argsToString(args));
+//
+//        MyLauncher.main(args);
 
 
     }
@@ -113,4 +134,5 @@ public class Verify {
 
         }
     }
+
 }

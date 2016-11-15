@@ -45,8 +45,6 @@ import java.util.stream.Collectors;
  */
 public abstract class AbstractVertxMojo extends AbstractMojo {
 
-    public static final String IO_VERTX_CORE_LAUNCHER = "io.vertx.core.Launcher";
-
     /* ==== Maven deps ==== */
     /**
      * The Maven project which will define and confiure the vertx-maven-plugin
