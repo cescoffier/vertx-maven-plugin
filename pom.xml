@@ -85,7 +85,7 @@
         <asciidoctor-maven-plugin.version>1.5.3</asciidoctor-maven-plugin.version>
         <asciidoctorj.version>1.5.4</asciidoctorj.version>
         <asciidoctorj-pdf.version>1.5.0-alpha.11</asciidoctorj-pdf.version>
-        <plexus-utils.version>3.0.8</plexus-utils.version>
+        <plexus-utils.version>3.0.24</plexus-utils.version>
         <junit.version>4.8.2</junit.version>
         <aether-util.version>1.0.0.v20140518</aether-util.version>
         <maven-aether-provider.version>3.2.5</maven-aether-provider.version>
@@ -102,6 +102,8 @@
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-project-info-reports-plugin.version>2.9</maven-project-info-reports-plugin.version>
         <snakeyaml.version>1.17</snakeyaml.version>
+        <mojo-executor.version>2.2.0</mojo-executor.version>
+        <mockito-all.version>1.10.19</mockito-all.version>
     </properties>
 
     <dependencies>
@@ -144,6 +146,13 @@
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
             <version>${vertx-core.version}</version>
+        </dependency>
+
+        <!-- Mojo Utils-->
+        <dependency>
+            <groupId>org.twdata.maven</groupId>
+            <artifactId>mojo-executor</artifactId>
+            <version>${mojo-executor.version}</version>
         </dependency>
 
         <!-- Artifact Resolution -->
@@ -191,12 +200,23 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-compat</artifactId>
+            <version>3.3.9</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>${mockito-all.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
@@ -208,6 +228,7 @@
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
             <version>${rest-assured.version}</version>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.codehaus.groovy</groupId>

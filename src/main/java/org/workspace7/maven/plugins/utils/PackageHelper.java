@@ -23,7 +23,7 @@ import org.jboss.shrinkwrap.api.asset.ByteArrayAsset;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.importer.ZipImporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.workspace7.maven.plugins.AbstractVertxMojo;
+import org.workspace7.maven.plugins.mojos.AbstractVertxMojo;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -92,7 +92,9 @@ public class PackageHelper {
                 .filter(dep -> dep.isPresent())
                 .forEach(dep -> {
                     File f = dep.get();
-                    log.info("Adding Dependency :" + f.toString());
+                    if (log.isDebugEnabled()) {
+                        log.debug("Adding Dependency :" + f.toString());
+                    }
                     this.archive.as(ZipImporter.class).importFrom(f);
                 });
 
@@ -100,7 +102,9 @@ public class PackageHelper {
                 .filter(dep -> dep.isPresent())
                 .forEach(dep -> {
                     File f = dep.get();
-                    log.info("Adding Dependency :" + f.toString());
+                    if (log.isDebugEnabled()) {
+                        log.debug("Adding Dependency :" + f.toString());
+                    }
                     this.archive.as(ZipImporter.class).importFrom(f);
                 });
 

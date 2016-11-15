@@ -15,7 +15,11 @@
  */
 
 
-import org.workspace7.maven.plugins.Verify
+import org.workspace7.maven.plugins.Verify;
+
+File primaryArtifactFile = new File(basedir, "target/vertx-demo-pkg-0.0.1.BUILD-SNAPSHOT.jar");
+
+assert primaryArtifactFile.exists();
 
 File fatJarFile = new File(basedir, "target/vertx-demo-pkg-fat.jar");
 

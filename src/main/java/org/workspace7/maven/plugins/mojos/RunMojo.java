@@ -14,7 +14,7 @@
  *   limitations under the License.
  */
 
-package org.workspace7.maven.plugins;
+package org.workspace7.maven.plugins.mojos;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.maven.model.Resource;

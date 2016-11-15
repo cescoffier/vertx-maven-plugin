@@ -14,11 +14,12 @@
  *   limitations under the License.
  */
 
-package org.workspace7.maven.plugins;
+package org.workspace7.maven.plugins.mojos;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.BuildPluginManager;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -72,8 +73,15 @@ public abstract class AbstractVertxMojo extends AbstractMojo {
     @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
     protected List<ArtifactRepository> remoteRepositories;
 
+    /* ==== Maven Components ==== */
     @Component
     protected MavenProjectHelper mavenProjectHelper;
+
+    @Component
+    protected MavenSession mavenSession;
+
+    @Component
+    protected BuildPluginManager buildPluginManager;
 
     @Component
     protected RepositorySystem repositorySystem;
@@ -165,22 +173,19 @@ public abstract class AbstractVertxMojo extends AbstractMojo {
      * This method returns the project's primary artifact file, this method tries to compute the artifact file name
      *  based on project finalName is configured or not
      * @param artifact - the project artifact for which the target file will be needed
-     * @return {@link File} representing the project primary artifact
-     * @throws MojoExecutionException
+     * @return {@link Optional<File>} representing the optional project primary artifact file
      */
-    protected File getArtifactFile(Artifact artifact) throws MojoExecutionException {
+    protected Optional<File> getArtifactFile(Artifact artifact) {
         final String finalName = this.project.getName();
         if (artifact == null) {
             Path finalNameArtifact = Paths.get(this.projectBuildDir, finalName + "." + this.project.getPackaging());
             if (Files.exists(finalNameArtifact)) {
-                return finalNameArtifact.toFile();
+                return Optional.of(finalNameArtifact.toFile());
             }
         } else {
-            return artifact.getFile();
+            return Optional.of(artifact.getFile());
         }
-        // TODO-ROL: Maybe we should fork vertx:package to the package phase (and provide also a vertx:package-nofork for usage
-        // in execution bindings) ?
-        throw new MojoExecutionException("No primary artifact found, please run mvn package before running vertx-maven-plugin:package");
+        return Optional.empty();
     }
 
 }
