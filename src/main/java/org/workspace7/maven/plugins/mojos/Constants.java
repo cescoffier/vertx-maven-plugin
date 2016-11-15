@@ -59,6 +59,22 @@ public interface Constants {
     String VERTX_CLASSIFIER = "vertx";
 
     /**
+     *
+     */
+    String VERTX_CONFIG_FILE_JSON = "application.json";
+
+    /**
+     *
+     */
+    String VERTX_CONFIG_FILE_YAML = "application.yaml";
+
+
+    /**
+     *
+     */
+    String VERTX_CONFIG_FILE_YML = "application.yml";
+
+    /**
      * vert.x command run
      */
     String VERTX_COMMAND_RUN = "run";

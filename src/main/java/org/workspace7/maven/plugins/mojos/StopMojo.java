@@ -26,7 +26,11 @@ import org.workspace7.maven.plugins.runners.ProcessRunner;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -49,41 +53,71 @@ public class StopMojo extends AbstractRunMojo {
     @Parameter(alias = "timeout", property = "vertx.stop.timeout", defaultValue = "10")
     protected int timeout;
 
+    /**
+     * the vertx application id that will be used to stop the process, if left blank this value will be intialized
+     * form the ${project.basedir}/{@link Constants#VERTX_PID_FILE}
+     */
+    @Parameter(alias = "appIds")
+    protected Set<String> appIds;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
         forked = true;
         vertxCommand = Constants.VERTX_COMMAND_STOP;
 
-        String vertxProcId;
+        getAppId();
 
-        try {
-            byte[] bytes = Files.readAllBytes(Paths.get(workDirectory.toString(), Constants.VERTX_PID_FILE));
-            vertxProcId = new String(bytes);
-            addClasspath(argsList);
+        for (String vertxProcId : appIds) {
+            try {
 
-            if (isVertxLauncher(launcher)) {
-                addVertxArgs(argsList);
-            } else {
-                argsList.add(launcher);
+                addClasspath(argsList);
+
+                if (isVertxLauncher(launcher)) {
+                    addVertxArgs(argsList);
+                } else {
+                    argsList.add(launcher);
+                }
+
+                argsList.add(vertxProcId);
+
+                ProcessRunner processRunner = runAsForked(argsList);
+
+                processRunner.awaitReadiness(timeout, TimeUnit.SECONDS);
+
+                if (processRunner.getProcess().isAlive()) {
+                    throw new MojoExecutionException("Unable to stop process within timeout :" + timeout + "seconds");
+                }
+
+                Files.delete(Paths.get(workDirectory.toString(), Constants.VERTX_PID_FILE));
+
+            } catch (IOException e) {
+                throw new MojoExecutionException("Unable to read process file from directory :" + workDirectory.toString());
+            } catch (InterruptedException e) {
+                throw new MojoExecutionException("Unable to stop process", e);
             }
+        }
+    }
 
-            argsList.add(vertxProcId);
+    /**
+     * This will compute the vertx application id(s) that will be passed to the vertx applicaiton with &quot;-id&quot;
+     * option, if the appId is not found in the configuration an new {@link UUID}  will be generated and assigned
+     */
+    private void getAppId() throws MojoExecutionException {
 
-            ProcessRunner processRunner = runAsForked(argsList);
+        if (appIds == null) {
+            appIds = new HashSet<>();
+        }
 
-            processRunner.awaitReadiness(timeout, TimeUnit.SECONDS);
+        Path vertxPidFile = Paths.get(workDirectory.toString(), Constants.VERTX_PID_FILE);
 
-            if (processRunner.getProcess().isAlive()) {
-                throw new MojoExecutionException("Unable to stop process within timeout :" + timeout + "seconds");
+        if (Files.exists(vertxPidFile)) {
+            try {
+                byte[] bytes = Files.readAllBytes(vertxPidFile);
+                appIds.add(new String(bytes));
+            } catch (IOException e) {
+                throw new MojoExecutionException("Error reading " + Constants.VERTX_PID_FILE, e);
             }
-
-            Files.delete(Paths.get(workDirectory.toString(), Constants.VERTX_PID_FILE));
-
-        } catch (IOException e) {
-            throw new MojoExecutionException("Unable to read process file from directory :" + workDirectory.toString());
-        } catch (InterruptedException e) {
-            throw new MojoExecutionException("Unable to stop process", e);
         }
     }
 }

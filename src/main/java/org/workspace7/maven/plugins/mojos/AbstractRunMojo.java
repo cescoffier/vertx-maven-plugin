@@ -21,6 +21,7 @@ import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.codehaus.plexus.util.DirectoryScanner;
 import org.workspace7.maven.plugins.runners.LaunchRunner;
 import org.workspace7.maven.plugins.runners.ProcessRunner;
 import org.workspace7.maven.plugins.utils.ConfigConverterUtil;
@@ -29,6 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -103,8 +105,7 @@ public class AbstractRunMojo extends AbstractVertxMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
-        //FIXME - open it up in respective commit
-        //scanAndLoadConfigs();
+        scanAndLoadConfigs();
 
         if (getLog().isDebugEnabled()) {
 
@@ -141,64 +142,6 @@ public class AbstractRunMojo extends AbstractVertxMojo {
             runInMavenJvm(argsList);
         }
 
-    }
-
-    /**
-     * This method to load Vert.X application configurations.
-     * This will use the pattern ${basedir}/src/main/conf/artifactId.[json/yaml]
-     */
-    protected void scanAndLoadConfigs() throws MojoExecutionException {
-        String artifactId = this.project.getArtifactId();
-        //Check if its JSON
-        Path confPath = Paths.get(this.project.getBasedir().toString(), "src/main/conf", artifactId, ".json");
-        if (confPath != null && confPath.toFile().exists() && confPath.toFile().isFile()) {
-            conf = confPath.toFile();
-            return;
-        }
-
-        //Check if its YAML
-        confPath = Paths.get(this.project.getBasedir().toString(), "src/main/conf", artifactId, ".yaml");
-        Path jsonConfPath = Paths.get(this.projectBuildDir, "conf", artifactId, ".json");
-        if (confPath != null && confPath.toFile().exists() && confPath.toFile().isFile()) {
-            try {
-                ConfigConverterUtil.convertYamlToJson(confPath, jsonConfPath);
-                conf = confPath.toFile();
-            } catch (IOException e) {
-                throw new MojoExecutionException("Error loading configuration file:" + confPath.toString());
-            }
-        }
-
-    }
-
-    /**
-     * This method will trigger the lauch of the applicaiton as non-forked, running in same JVM as maven.
-     *
-     * @param argsList - the arguments to be passed to the vertx launcher
-     * @throws MojoExecutionException - any error that might occur while starting the process
-     */
-
-    protected void runInMavenJvm(List<String> argsList) throws MojoExecutionException {
-
-        LaunchRunner launchRunner = new LaunchRunner(launcher, argsList, getLog());
-
-        Thread launcherThread = launchRunner.run();
-        launcherThread.setContextClassLoader(buildClassLoader(getClassPathUrls()));
-        launcherThread.start();
-        launchRunner.join();
-        launchRunner.getThreadGroup().rethrowException();
-    }
-
-    /**
-     * This will start VertX application in forked mode.
-     *
-     * @param argsList - the list of arguments that will be passed to the process
-     * @return the exit code of the process run
-     * @throws MojoExecutionException - any error that might occur while starting the process
-     */
-    protected ProcessRunner runAsForked(List<String> argsList) throws MojoExecutionException {
-        ProcessRunner processRunner = new ProcessRunner(argsList, this.workDirectory, getLog(), true);
-        processRunner.run();
-        return processRunner;
     }
 
     /**
@@ -304,6 +247,14 @@ public class AbstractRunMojo extends AbstractVertxMojo {
 
     }
 
+    /**
+     * Method to check if the Launcher is {@link Constants#IO_VERTX_CORE_LAUNCHER} or instance of
+     * {@link io.vertx.core.Launcher}
+     *
+     * @param launcher - the launcher class as string that needs to be checked
+     * @return true if its {@link Constants#IO_VERTX_CORE_LAUNCHER} or instance of {@link io.vertx.core.Launcher}
+     * @throws MojoExecutionException - any error that might occur while checking
+     */
     protected boolean isVertxLauncher(String launcher) throws MojoExecutionException {
 
         if (launcher != null) {
@@ -328,6 +279,83 @@ public class AbstractRunMojo extends AbstractVertxMojo {
             }
         } else {
             return false;
+        }
+    }
+
+    /**
+     * This method will trigger the lauch of the applicaiton as non-forked, running in same JVM as maven.
+     *
+     * @param argsList - the arguments to be passed to the vertx launcher
+     * @throws MojoExecutionException - any error that might occur while starting the process
+     */
+
+    protected void runInMavenJvm(List<String> argsList) throws MojoExecutionException {
+
+        LaunchRunner launchRunner = new LaunchRunner(launcher, argsList, getLog());
+
+        Thread launcherThread = launchRunner.run();
+        launcherThread.setContextClassLoader(buildClassLoader(getClassPathUrls()));
+        launcherThread.start();
+        launchRunner.join();
+        launchRunner.getThreadGroup().rethrowException();
+    }
+
+    /**
+     * This will start VertX application in forked mode.
+     *
+     * @param argsList - the list of arguments that will be passed to the process
+     * @return the exit code of the process run
+     * @throws MojoExecutionException - any error that might occur while starting the process
+     */
+    protected ProcessRunner runAsForked(List<String> argsList) throws MojoExecutionException {
+        ProcessRunner processRunner = new ProcessRunner(argsList, this.workDirectory, getLog(), true);
+        processRunner.run();
+        return processRunner;
+    }
+
+    /**
+     * This method to load Vert.X application configurations.
+     * This will use the pattern ${basedir}/src/main/conf/application.[json/yaml/yml]
+     */
+    protected void scanAndLoadConfigs() throws MojoExecutionException {
+
+        Path confBaseDir = Paths.get(this.project.getBasedir().toString(), "src", "main", "conf");
+
+        if (Files.exists(confBaseDir) && Files.isDirectory(confBaseDir)) {
+
+            DirectoryScanner directoryScanner = new DirectoryScanner();
+            directoryScanner.setBasedir(this.project.getBasedir() + "/src/main/conf");
+            directoryScanner.setIncludes(new String[]{"*.json", "*.yml", "*.yaml"});
+            directoryScanner.scan();
+
+            String[] configFiles = directoryScanner.getIncludedFiles();
+
+            if (configFiles != null && configFiles.length != 0) {
+                String configFile = configFiles[0];
+                Path confPath = Paths.get(confBaseDir.toFile().toString(), configFile);
+                //Check if its JSON
+                if (isJson(configFile)) {
+                    conf = confPath.toFile();
+                    return;
+                } else if (isYaml(configFile)) {
+                    //Check if its YAML or YML
+                    Path jsonConfDir = Paths.get(this.projectBuildDir, "conf");
+                    jsonConfDir.toFile().mkdirs();
+                    Path jsonConfPath = Paths.get(jsonConfDir.toString(), Constants.VERTX_CONFIG_FILE_JSON);
+                    try {
+                        if (Files.createFile(jsonConfPath).toFile().exists()) {
+                            ConfigConverterUtil.convertYamlToJson(confPath, jsonConfPath);
+                            conf = jsonConfPath.toFile();
+                        }
+                        return;
+                    } catch (IOException e) {
+                        throw new MojoExecutionException("Error loading configuration file:" + confPath.toString(), e);
+                    } catch (Exception e) {
+                        throw new MojoExecutionException("Error loading and converting configuration file:"
+                                + confPath.toString(), e);
+                    }
+                }
+            }
         }
     }
 
@@ -377,6 +405,27 @@ public class AbstractRunMojo extends AbstractVertxMojo {
             throw new MojoExecutionException("Unable to run:", e);
         }
         return classPathUrls;
+    }
+
+
+    /**
+     * Method to check if the file is JSON file
+     *
+     * @param configFile - the config file to be checked
+     * @return if its json file e.g. applicaiton.json
+     */
+    private boolean isJson(String configFile) {
+        return configFile != null && configFile.endsWith(".json");
+    }
+
+    /**
+     * Method to check if the file is YAML file
+     *
+     * @param configFile - the config file to be checked
+     * @return if its YAML file e.g. application.yml or applicaiton.yml
+     */
+    private boolean isYaml(String configFile) {
+        return configFile != null && (configFile.endsWith(".yaml") || configFile.endsWith(".yml"));
     }
 
 }

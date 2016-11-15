@@ -18,6 +18,8 @@ package org.workspace7.maven.plugins;
 
 import io.vertx.core.AbstractVerticle;
 
+import java.util.stream.Collectors;
+
 /**
  * @author kameshs
  */
@@ -27,9 +29,8 @@ public class SimpleVerticle extends AbstractVerticle {
         int httpPort = config().getInteger("http.port");
         System.out.println("Configured HTTP Port is :" + httpPort);
 
-        Runtime runtime = Runtime.getRuntime();
-        long xmx = runtime.maxMemory() / (1024 * 1024);
-        System.out.println("Max Memory:" + xmx + " MB");
+        String names = config().getJsonArray("names").stream().map(s -> String.valueOf(s)).collect(Collectors.joining(" "));
+        System.out.println("Configured Names are :" + names);
         vertx.close();
     }
 }

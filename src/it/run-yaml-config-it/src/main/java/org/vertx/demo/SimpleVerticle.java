@@ -17,16 +17,22 @@
 package org.vertx.demo;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+
+import java.util.stream.Collectors;
 
 /**
  * @author kameshs
  */
 public class SimpleVerticle extends AbstractVerticle {
     @Override
-    public void start(Future<Void> startFuture) throws Exception {
-        vertx.createHttpServer()
-                .requestHandler(req -> req.response().end("Hello World!"))
-                .listen(8080);
+    public void start() throws Exception {
+        int httpPort = config().getInteger("http.port");
+        System.out.println("Configured HTTP Port is :" + httpPort);
+
+        String names = config().getJsonArray("names").stream()
+                .map(s -> String.valueOf(s))
+                .collect(Collectors.joining(" "));
+        System.out.println("Configured Names are :" + names);
+        vertx.close();
     }
 }
