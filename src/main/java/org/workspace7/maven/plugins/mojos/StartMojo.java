@@ -30,8 +30,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * This goal is used to run the vertx application in background mode, the application id will be persisted in the
@@ -67,6 +69,13 @@ public class StartMojo extends AbstractRunMojo {
      */
     @Parameter(alias = "appId", property = "vertx.app.id")
     protected String appId;
+
+    /**
+     * The additional arguments that will be passed as program arguments to the JVM, all standard vertx arguments are
+     * automatically applied
+     */
+    @Parameter(alias = "jvmArgs", property = "vertx.jvmArguments")
+    protected List<String> jvmArgs;
 
     private MojoUtils mojoUtils = new MojoUtils();
 
@@ -135,6 +144,16 @@ public class StartMojo extends AbstractRunMojo {
         }
         argsList.add("-id");
         argsList.add(vertxProcId);
+
+        if (jvmArgs != null && !jvmArgs.isEmpty()) {
+            String javaOpts = jvmArgs.stream().collect(Collectors.joining(" "));
+            StringBuilder argJavaOpts = new StringBuilder();
+            argJavaOpts.append(Constants.VERTX_ARG_JAVA_OPT);
+            argJavaOpts.append("=\"");
+            argJavaOpts.append(javaOpts);
+            argJavaOpts.append("\"");
+            argsList.add(argJavaOpts.toString());
+        }
 
         runAsForked(argsList);
 

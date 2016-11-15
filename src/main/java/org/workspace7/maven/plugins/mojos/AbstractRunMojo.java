@@ -67,13 +67,6 @@ public class AbstractRunMojo extends AbstractVertxMojo {
     protected List<String> redeployPatterns;
 
     /**
-     * The additional arguments that will be passed as program arguments to the JVM, all standard vertx arguments are
-     * automatically applied
-     */
-    @Parameter(alias = "runArgs", property = "vertx.jvmArguments")
-    protected String[] runArgs;
-
-    /**
      * The flag to indicate whether to run the vertx application in forked mode or within running maven jvm.
      * By default its run under maven JVM
      */

@@ -14,22 +14,20 @@
  *   limitations under the License.
  */
 
-package org.workspace7.maven.plugins;
+package org.vertx.demo;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 
 /**
  * @author kameshs
  */
 public class SimpleVerticle extends AbstractVerticle {
     @Override
-    public void start() throws Exception {
+    public void start(Future<Void> startFuture) throws Exception {
         int httpPort = config().getInteger("http.port");
         System.out.println("Configured HTTP Port is :" + httpPort);
-
-        Runtime runtime = Runtime.getRuntime();
-        long xmx = runtime.maxMemory() / (1024 * 1024);
-        System.out.println("Max Memory:" + xmx + " MB");
+        startFuture.complete();
         vertx.close();
     }
 }
