@@ -550,11 +550,28 @@ table.CodeRay td.code>pre{padding:0}
 </ul>
 </li>
 <li><a href="#example-configurations">5. Example Configurations</a>
-<ul class="sectlevel3">
+<ul class="sectlevel2">
 <li><a href="#a-id-package-goal-example-a-vert-x-package">5.1. <a id="package-goal-example"></a> vert.x:package</a></li>
-<li><a href="#run-goal-examples">5.2. vert.x:run Examples</a></li>
-<li><a href="#start-goal-examples">5.3. vert.x:start Examples</a></li>
-<li><a href="#a-id-stop-goal-examples-a-vert-x-stop">5.4. <a id="stop-goal-examples"></a> vert.x:stop</a></li>
+<li><a href="#run-goal-examples">5.2. vert.x:run Examples</a>
+<ul class="sectlevel4">
+<li><a href="#run-with-forked">run goal as forked process</a></li>
+<li><a href="#run-with-redeploy-default">run goal with vert.x redeploy enabled</a></li>
+<li><a href="#run-with-redeploy-default">run goal with vert.x redeploy enabled with custom pattern</a></li>
+</ul>
+</li>
+<li><a href="#start-goal-examples">5.3. vert.x:start Examples</a>
+<ul class="sectlevel4">
+<li><a href="#start-goal-with-defaults">start goal with defaults</a></li>
+<li><a href="#start-with-app-id">start goal with custom application id</a></li>
+<li><a href="#start-with-java-opts">start goal with custom java options</a></li>
+</ul>
+</li>
+<li><a href="#stop-goal-examples">5.4. vert.x:stop Examples</a>
+<ul class="sectlevel4">
+<li><a href="#stop-with-no-additional-configuration">stop with no additional configuration</a></li>
+<li><a href="#stopping-one-or-more-application">stopping one or more application</a></li>
+</ul>
+</li>
 <li><a href="#references">5.5. References</a></li>
 </ul>
 </li>
@@ -1043,8 +1060,8 @@ please update the plugin version as needed
 </tr>
 </table>
 </div>
-<div class="sect3">
-<h4 id="a-id-package-goal-example-a-vert-x-package">5.1. <a id="package-goal-example"></a> vert.x:package</h4>
+<div class="sect2">
+<h3 id="a-id-package-goal-example-a-vert-x-package">5.1. <a id="package-goal-example"></a> vert.x:package</h3>
 <div class="listingblock">
 <div class="content">
 <pre class="CodeRay highlight"><code data-lang="xml">---
@@ -1065,8 +1082,8 @@ please update the plugin version as needed
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="run-goal-examples">5.2. vert.x:run Examples</h4>
+<div class="sect2">
+<h3 id="run-goal-examples">5.2. vert.x:run Examples</h3>
 <div class="listingblock">
 <div class="content">
 <pre class="CodeRay highlight"><code data-lang="xml">---
@@ -1194,8 +1211,8 @@ please update the plugin version as needed
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="start-goal-examples">5.3. vert.x:start Examples</h4>
+<div class="sect2">
+<h3 id="start-goal-examples">5.3. vert.x:start Examples</h3>
 <div class="sect4">
 <h5 id="start-goal-with-defaults">start goal with defaults</h5>
 <div class="listingblock">
@@ -1288,8 +1305,8 @@ please update the plugin version as needed
 </div>
 </div>
 </div>
-<div class="sect3">
-<h4 id="a-id-stop-goal-examples-a-vert-x-stop">5.4. <a id="stop-goal-examples"></a> vert.x:stop</h4>
+<div class="sect2">
+<h3 id="stop-goal-examples">5.4. vert.x:stop Examples</h3>
 <div class="sect4">
 <h5 id="stop-with-no-additional-configuration">stop with no additional configuration</h5>
 <div class="listingblock">
