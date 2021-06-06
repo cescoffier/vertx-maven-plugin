@@ -92,7 +92,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.source>1.8</maven.compiler.source>
 
-        <commons-io.version>2.5</commons-io.version>
+        <commons-io.version>2.7</commons-io.version>
         <vertx-core.version>3.5.4</vertx-core.version>
         <skipTests>false</skipTests>
         <assertj-core.version>3.4.1</assertj-core.version>
